@@ -9,6 +9,6 @@
 
 （1）进入项目目录： cd Open-AutoGLM
 
-（2）激活虚拟环境： source venv/bin/activate
+（2）激活虚拟环境： source venv/bin/activate   # Windows: venv\Scripts\activate
 
 （3）直接运行项目脚本： python3 main.py --base-url https://open.bigmodel.cn/api/paas/v4 --model "autoglm-phone" --apikey "3400b28973dbc4f62558def1f2053b96.kiUwPwhwyLvULvWt" "需要的操作"
