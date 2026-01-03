@@ -35,6 +35,14 @@ android {
     kotlinOptions {
         jvmTarget = "11"
     }
+
+    packaging {
+        resources {
+            excludes += "META-INF/INDEX.LIST" // 最早解决的冲突文件
+            excludes += "META-INF/DEPENDENCIES" // 第二次解决的 httpcomponents 冲突
+            excludes += "META-INF/io.netty.versions.properties" // 新增：解决本次 netty 冲突
+        }
+    }
 }
 
 dependencies {
@@ -43,6 +51,8 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
+    implementation(libs.firebase.appdistribution.gradle)
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -52,6 +62,7 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.9.1")
 
     // JSON解析
     implementation("com.google.code.gson:gson:2.10.1")
