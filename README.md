@@ -55,3 +55,38 @@
   "x2": 500.0,
   "y2": 300.0
 }
+
+// 示例 5：返回上一页（action: "back"）
+{
+  "_metadata": "do",
+  "action": "back"
+}
+
+// 示例 6：返回手机桌面（action: "home"）
+{
+  "_metadata": "do",
+  "action": "home"
+}
+
+// 示例 7：长按屏幕（action: "home"）
+{
+  "_metadata": "do",
+  "action": "longpress / long press",
+  "x1": 200.0,
+  "y1": 400.5
+}
+
+// 示例 8：双击屏幕（action: "home"）
+{
+  "_metadata": "do",
+  "action": "doubletap / double tap",
+  "x1": 300.0,
+  "y1": 500.0
+}
+
+// 示例 9：等待（action: "wait"）
+{
+  "_metadata": "do",
+  "action": "wait",
+  "delay": 2000
+}
