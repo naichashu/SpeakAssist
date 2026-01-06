@@ -1,0 +1,21 @@
+R_DEF: Internal format may change without notice
+local
+color black
+color white
+drawable ic_launcher_background
+drawable ic_launcher_foreground
+id btnExecute
+id etInput
+id main
+id tilInput
+layout activity_main
+mipmap ic_launcher
+mipmap ic_launcher_round
+string accessibility_service_description
+string app_name
+string system_prompt_template
+style AppTheme
+style Base.Theme.SpeakAssist
+style Theme.SpeakAssist
+xml backup_rules
+xml data_extraction_rules

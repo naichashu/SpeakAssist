@@ -119,7 +119,7 @@ class ModelClient(
      * 解析响应内容
      */
     private fun parseResponse(content: String): ModelResponse {
-        Log.d(TAG, "解析响应内容: ${content.take(500)}")
+        Log.d(TAG, "解析前响应内容: ${content.take(500)}")
 
         var thinking = ""
         var action = ""
@@ -158,6 +158,7 @@ class ModelClient(
                 }
             }
         }
+        Log.d(TAG, "解析后响应内容:thinking=${thinking.take(80)}, action=${action.take(80)}")
 
         return ModelResponse(thinking = thinking, action = action)
     }
