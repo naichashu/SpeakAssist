@@ -9,6 +9,7 @@ import com.example.network.dto.ChatMessage
 import com.example.network.dto.ContentItem
 import com.example.register.ActionExecutor
 import com.example.register.ActionResult
+import com.example.register.AppRegister
 import com.example.service.MyAccessibilityService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -39,6 +40,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     suspend fun executeTaskLoop(userPrompt: String, modelName: String) {
+        AppRegister.initialize(getApplication()) // 初始化注册，以确保最新的映射配置被加载
         Log.d(TAG, "开始执行任务")
         var stepCount = 0
         val maxSteps = 50
@@ -95,6 +97,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 null ?: displayMetrics.heightPixels
             ) ?: ActionResult(false, "ActionExecutor is null")
 
+            Log .d(TAG, "执行动作结果: ${result.success}: ${result.message}")
+
             if (isFinishAction) {
                 actionExecutor?.bringAppToForeground()
                 Log.d(TAG, "任务完成(finish动作)")
@@ -110,7 +114,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val completionMessage = result.message
                 // 确保返回应用
                 actionExecutor?.bringAppToForeground()
-                Log.d("ChatViewModel", "任务完成: $completionMessage")
+                Log.d(TAG, "任务完成: $completionMessage")
                 return
             }
 
@@ -160,5 +164,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             delay(900)
             stepCount++
         }
+        actionExecutor?.bringAppToForeground()
+        Log.w("ChatViewModel", "达到最大步数限制")
     }
 }

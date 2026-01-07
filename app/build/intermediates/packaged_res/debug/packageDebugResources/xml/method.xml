@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<input-method xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 输入法标识：唯一即可 -->
+    <subtype
+        android:label="小噜输入法"
+        android:languageTag="zh-CN"
+        android:imeSubtypeMode="keyboard" />
+
+    <!-- 可选：禁用输入法界面（我们只需要后台输入，不需要显示键盘） -->
+    <settings android:settingsActivity=".ime.IMESettingsActivity" />
+</input-method>

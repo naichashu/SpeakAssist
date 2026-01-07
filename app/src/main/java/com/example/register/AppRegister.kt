@@ -10,7 +10,7 @@ object AppRegister {
 
     private var appToPackageMap: MutableMap<String, String> = mutableMapOf()
 
-    private val packageToAppMap: MutableMap<String, String> = mutableMapOf()
+    private var packageToAppMap: MutableMap<String, String> = mutableMapOf()
 
     fun getPackageName(appName: String): String {
         val name = appName.trim()
@@ -26,7 +26,6 @@ object AppRegister {
      * @param context 上下文（Activity/Service/Application 均可）
      * @return MutableMap<String, String> 键：应用名称，值：App 唯一包名
      */
-    // TODO 未初始化
     fun initialize(context: Context){
         // 初始化需要的可变映射（满足你的数据结构要求）
         val packageManager: PackageManager = context.packageManager
@@ -42,7 +41,7 @@ object AppRegister {
         for (appInfo: ApplicationInfo in installedApplications) {
             try {
                 // 获取应用名称（用户可见，如「微信」「设置」）
-                val appName = packageManager.getApplicationLabel(appInfo).toString()
+                val appName = appInfo.loadLabel(packageManager).toString()
                 // 获取 App 唯一包名（如「com.tencent.mm」）
                 val packageName = appInfo.packageName
 
@@ -51,6 +50,7 @@ object AppRegister {
                 appToPackageMap[appName.lowercase()] = packageName
 
                 packageToAppMap[packageName] = appName
+                Log.d(TAG, "已安装 App：$appName -> $packageName")
             } catch (e: Exception) {
                 // 极少数系统 App 可能获取失败，直接跳过
                 continue

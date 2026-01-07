@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.example.speakassist.app-mergeDebugResources-32:/values-v21/values-v21.xml",
+            "outputFile": "com.example.speakassist.app-mergeDebugResources-34:/values-v21/values-v21.xml",
             "map": [
                 {
                     "source": "/Users/tal/.gradle/caches/8.13/transforms/7e52f6d4bbf7d0addee1086b55d8b524/transformed/qmui-2.0.1/res/values-v21/values-v21.xml",

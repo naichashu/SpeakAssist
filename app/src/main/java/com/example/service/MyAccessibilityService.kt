@@ -3,7 +3,6 @@ package com.example.service
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
-import android.graphics.Point
 import android.view.accessibility.AccessibilityEvent
 
 /**

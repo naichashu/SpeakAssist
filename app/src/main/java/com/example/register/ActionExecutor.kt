@@ -2,11 +2,15 @@ package com.example.register
 
 import android.content.Intent
 import android.util.Log
+import android.widget.Toast
 import com.example.service.MyAccessibilityService
+import com.example.service.MyInputMethodService
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.google.gson.stream.JsonReader
 import java.io.StringReader
+import android.provider.Settings
+import kotlinx.coroutines.delay
 
 /**
  * 动作详情
@@ -37,6 +41,8 @@ class ActionExecutor(private val service: MyAccessibilityService) {
     companion object {
         const val TAG = "ActionExecutor"
     }
+
+    private var inputService: MyInputMethodService? = null
 
     /**
      * 执行动作
@@ -263,6 +269,8 @@ class ActionExecutor(private val service: MyAccessibilityService) {
     ): ActionResult {
         val metadata = actionObj.get("_metadata")?.asString ?: ""
 
+        Log.d(TAG, "处理动作: $metadata")
+
         return when (metadata) {
             "finish" -> {
                 val message = actionObj.get("message")?.asString ?: "任务完成"
@@ -281,6 +289,9 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         }
     }
 
+    /**
+     * 应用返回前台
+     */
     fun bringAppToForeground() {
         try {
             val packageName = service.packageName
@@ -305,16 +316,15 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                 "launch" -> launchApp(actionObj)
                 "tap" -> tap(actionObj, screenWidth, screenHeight)
                 "type" -> type(actionObj)
-                "swipe" -> swipe(actionObj, screenWidth, screenHeight)
-                "back" -> back()
-                "home" -> home()
-                "longpress", "long press" -> longPress(actionObj, screenWidth, screenHeight)
-                "doubletap", "double tap" -> doubleTap(actionObj, screenWidth, screenHeight)
-                "wait" -> wait(actionObj)
+//                "swipe" -> swipe(actionObj, screenWidth, screenHeight)
+//                "back" -> back()
+//                "home" -> home()
+//                "longpress", "long press" -> longPress(actionObj, screenWidth, screenHeight)
+//                "doubletap", "double tap" -> doubleTap(actionObj, screenWidth, screenHeight)
+//                "wait" -> wait(actionObj)
                 else -> ActionResult(success = false, message = "不支持的操作: $action")
             }
         } finally {
-            FloatingWindowService.getInstance()?.setVisibility(true)
         }
         return result
     }
@@ -366,6 +376,9 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         }
     }
 
+    /**
+     * 点击事件
+     */
     private fun tap(actionObj: JsonObject, screenWidth: Int, screenHeight: Int): ActionResult {
         val element = actionObj.get("element")
         if (element.isJsonArray) {
@@ -414,6 +427,66 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         val x = (arr[0] / 1000f) * screenWidth
         val y = (arr[1] / 1000f) * screenHeight
         return Pair(x, y)
+    }
+
+    /**
+     * 输入文本
+     */
+    private suspend fun type(actionObj: JsonObject): ActionResult {
+        val text = actionObj.get("text")?.asString ?: return ActionResult(
+            success = false,
+            message = "缺少text参数"
+        )
+
+        // 检查输入法服务是否已启用
+        if(!MyInputMethodService.isEnabled(service)) {
+            Toast.makeText(service, "请先启用输入法服务", Toast.LENGTH_SHORT).show()
+            try {
+                // 核心 Intent：跳转到输入法设置界面
+                val intent = Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)
+                // 添加标记：新建任务栈，避免返回时混乱
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                service.startActivity(intent)
+
+                // 提示用户
+                Toast.makeText(service, "已为你跳转到输入法设置页面", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                // 兼容部分手机路径不同的情况，降级跳转到系统设置主页面
+                val fallbackIntent = Intent(Settings.ACTION_SETTINGS)
+                fallbackIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                service.startActivity(fallbackIntent)
+
+                Toast.makeText(service, "未找到输入法设置入口，已跳转到系统设置主页面，请手动查找「语言和输入法」",
+                    Toast.LENGTH_LONG).show()
+            }
+
+            delay(100)
+
+            if (!MyInputMethodService.isEnabled(service)) {
+                return ActionResult(
+                    success = false,
+                    message = "输入法服务未启用，无法完成输入操作"
+                )
+            }
+        }
+
+        inputService = MyInputMethodService.getInstance()
+        val inputSuccess = inputService?.typeText(text) ?: false
+
+        // 返回结果
+        return if (inputSuccess) {
+            ActionResult(
+                success = true,
+                message = "文本输入成功：$text",
+                actionDetail = ActionDetail("type", text = text) // 可选：补充输入详情
+            )
+        } else {
+            ActionResult(
+                success = false,
+                message = "输入法已启用，但输入失败（可能未激活输入框）"
+            )
+        }
+
     }
 
 }

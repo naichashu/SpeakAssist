@@ -1,9 +1,9 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:2:1-27:12
-INJECTED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:2:1-27:12
-INJECTED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:2:1-27:12
-INJECTED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:2:1-27:12
+ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:2:1-51:12
+INJECTED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:2:1-51:12
+INJECTED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:2:1-51:12
+INJECTED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:2:1-51:12
 MERGED from [com.qmuiteam:qmui:2.0.1] /Users/tal/.gradle/caches/8.13/transforms/7e52f6d4bbf7d0addee1086b55d8b524/transformed/qmui-2.0.1/AndroidManifest.xml:2:1-9:12
 MERGED from [com.google.android.material:material:1.10.0] /Users/tal/.gradle/caches/8.13/transforms/7eea1b2972c10743d6522b1d2859593b/transformed/material-1.10.0/AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.constraintlayout:constraintlayout:2.1.4] /Users/tal/.gradle/caches/8.13/transforms/db498cb626b630830736d9e28bedf7bf/transformed/constraintlayout-2.1.4/AndroidManifest.xml:2:1-11:12
@@ -36,6 +36,8 @@ MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.6.2] /Users/tal/.gradle/ca
 MERGED from [androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2] /Users/tal/.gradle/caches/8.13/transforms/22c8c26626584e1d65d70a175930aed9/transformed/lifecycle-viewmodel-ktx-2.6.2/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.6.2] /Users/tal/.gradle/caches/8.13/transforms/a419d99d9e0c01b999be40ccb37bb815/transformed/lifecycle-viewmodel-savedstate-2.6.2/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.core:core-ktx:1.10.1] /Users/tal/.gradle/caches/8.13/transforms/d0a598f1661f98cb7ca7ad3eb5a18e24/transformed/core-ktx-1.10.1/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.datastore:datastore-preferences:1.0.0] /Users/tal/.gradle/caches/8.13/transforms/441446a90c7a5202fa936b2a7d37697b/transformed/datastore-preferences-1.0.0/AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.datastore:datastore:1.0.0] /Users/tal/.gradle/caches/8.13/transforms/ded6b74a233b35c1b0d03c77054b38a4/transformed/datastore-1.0.0/AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.annotation:annotation-experimental:1.3.0] /Users/tal/.gradle/caches/8.13/transforms/e9847d28cbaceb2862e8c54831198b3b/transformed/annotation-experimental-1.3.0/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] /Users/tal/.gradle/caches/8.13/transforms/e95eea5207f15f924a48c7248d900f08/transformed/cursoradapter-1.0.0/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.cardview:cardview:1.0.0] /Users/tal/.gradle/caches/8.13/transforms/b4c727b60617cc20737b34a0d5e53a58/transformed/cardview-1.0.0/AndroidManifest.xml:17:1-22:12
@@ -63,8 +65,8 @@ ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidMani
 	android:name
 		ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:5:22-64
 application
-ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:7:5-25:19
-INJECTED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:7:5-25:19
+ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:7:5-49:19
+INJECTED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:7:5-49:19
 MERGED from [com.google.android.material:material:1.10.0] /Users/tal/.gradle/caches/8.13/transforms/7eea1b2972c10743d6522b1d2859593b/transformed/material-1.10.0/AndroidManifest.xml:22:5-20
 MERGED from [com.google.android.material:material:1.10.0] /Users/tal/.gradle/caches/8.13/transforms/7eea1b2972c10743d6522b1d2859593b/transformed/material-1.10.0/AndroidManifest.xml:22:5-20
 MERGED from [androidx.constraintlayout:constraintlayout:2.1.4] /Users/tal/.gradle/caches/8.13/transforms/db498cb626b630830736d9e28bedf7bf/transformed/constraintlayout-2.1.4/AndroidManifest.xml:9:5-20
@@ -117,6 +119,50 @@ category#android.intent.category.LAUNCHER
 ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:22:17-77
 	android:name
 		ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:22:27-74
+service#com.example.service.MyAccessibilityService
+ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:26:9-37:19
+	android:label
+		ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:30:13-64
+	android:exported
+		ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:28:13-36
+	android:permission
+		ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:29:13-79
+	android:name
+		ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:27:13-70
+intent-filter#action:name:android.accessibilityservice.AccessibilityService
+ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:31:13-33:29
+action#android.accessibilityservice.AccessibilityService
+ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:32:17-92
+	android:name
+		ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:32:25-89
+meta-data#android.accessibilityservice
+ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:34:13-36:72
+	android:resource
+		ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:36:17-69
+	android:name
+		ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:35:17-60
+service#com.example.service.MyInputMethodService
+ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:39:9-48:19
+	android:label
+		ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:40:13-48
+	android:exported
+		ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:41:13-36
+	android:permission
+		ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:42:13-70
+	android:name
+		ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:39:18-73
+intent-filter#action:name:android.view.InputMethod
+ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:43:13-45:29
+action#android.view.InputMethod
+ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:44:17-67
+	android:name
+		ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:44:25-64
+meta-data#android.view.im
+ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:46:13-47:50
+	android:resource
+		ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:47:17-47
+	android:name
+		ADDED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml:46:24-54
 uses-sdk
 INJECTED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from /Users/tal/AndroidStudioProjects/SpeakAssist/app/src/main/AndroidManifest.xml
@@ -185,6 +231,10 @@ MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.6.2] /Users/tal
 MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.6.2] /Users/tal/.gradle/caches/8.13/transforms/a419d99d9e0c01b999be40ccb37bb815/transformed/lifecycle-viewmodel-savedstate-2.6.2/AndroidManifest.xml:20:5-44
 MERGED from [androidx.core:core-ktx:1.10.1] /Users/tal/.gradle/caches/8.13/transforms/d0a598f1661f98cb7ca7ad3eb5a18e24/transformed/core-ktx-1.10.1/AndroidManifest.xml:5:5-44
 MERGED from [androidx.core:core-ktx:1.10.1] /Users/tal/.gradle/caches/8.13/transforms/d0a598f1661f98cb7ca7ad3eb5a18e24/transformed/core-ktx-1.10.1/AndroidManifest.xml:5:5-44
+MERGED from [androidx.datastore:datastore-preferences:1.0.0] /Users/tal/.gradle/caches/8.13/transforms/441446a90c7a5202fa936b2a7d37697b/transformed/datastore-preferences-1.0.0/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.datastore:datastore-preferences:1.0.0] /Users/tal/.gradle/caches/8.13/transforms/441446a90c7a5202fa936b2a7d37697b/transformed/datastore-preferences-1.0.0/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.datastore:datastore:1.0.0] /Users/tal/.gradle/caches/8.13/transforms/ded6b74a233b35c1b0d03c77054b38a4/transformed/datastore-1.0.0/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.datastore:datastore:1.0.0] /Users/tal/.gradle/caches/8.13/transforms/ded6b74a233b35c1b0d03c77054b38a4/transformed/datastore-1.0.0/AndroidManifest.xml:20:5-22:41
 MERGED from [androidx.annotation:annotation-experimental:1.3.0] /Users/tal/.gradle/caches/8.13/transforms/e9847d28cbaceb2862e8c54831198b3b/transformed/annotation-experimental-1.3.0/AndroidManifest.xml:20:5-44
 MERGED from [androidx.annotation:annotation-experimental:1.3.0] /Users/tal/.gradle/caches/8.13/transforms/e9847d28cbaceb2862e8c54831198b3b/transformed/annotation-experimental-1.3.0/AndroidManifest.xml:20:5-44
 MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] /Users/tal/.gradle/caches/8.13/transforms/e95eea5207f15f924a48c7248d900f08/transformed/cursoradapter-1.0.0/AndroidManifest.xml:20:5-44
