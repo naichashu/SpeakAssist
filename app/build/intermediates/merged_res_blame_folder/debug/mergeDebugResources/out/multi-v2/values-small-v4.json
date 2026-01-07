@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.example.speakassist.app-mergeDebugResources-34:/values-small-v4/values-small-v4.xml",
+            "outputFile": "com.example.speakassist.app-mergeDebugResources-35:/values-small-v4/values-small-v4.xml",
             "map": [
                 {
                     "source": "/Users/tal/.gradle/caches/8.13/transforms/7eea1b2972c10743d6522b1d2859593b/transformed/material-1.10.0/res/values-small-v4/values-small-v4.xml",

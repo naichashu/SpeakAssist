@@ -8,7 +8,6 @@ import android.widget.Button
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.viewmodel.ChatViewModel
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.delay
@@ -35,7 +34,7 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val inputText = etInput.text?.toString()?.trim()
                     Log.d("MainActivity", "开始执行任务：$inputText")
-                    val chatViewModel: ChatViewModel = viewModel()
+                    val chatViewModel = ChatViewModel(application)
                     delay(1000)
                     chatViewModel.executeTaskLoop("$inputText", "autoglm-phone")
                 } catch (e: Exception) {

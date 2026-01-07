@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.example.speakassist.app-mergeDebugResources-34:/values-en-rIN/values-en-rIN.xml",
+            "outputFile": "com.example.speakassist.app-mergeDebugResources-35:/values-en-rIN/values-en-rIN.xml",
             "map": [
                 {
                     "source": "/Users/tal/.gradle/caches/8.13/transforms/469850628ee3355ee3b115e5d910895d/transformed/appcompat-1.6.1/res/values-en-rIN/values-en-rIN.xml",

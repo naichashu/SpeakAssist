@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.example.speakassist.app-mergeDebugResources-34:/values-zh-rHK/values-zh-rHK.xml",
+            "outputFile": "com.example.speakassist.app-mergeDebugResources-35:/values-zh-rHK/values-zh-rHK.xml",
             "map": [
                 {
                     "source": "/Users/tal/.gradle/caches/8.13/transforms/469850628ee3355ee3b115e5d910895d/transformed/appcompat-1.6.1/res/values-zh-rHK/values-zh-rHK.xml",
