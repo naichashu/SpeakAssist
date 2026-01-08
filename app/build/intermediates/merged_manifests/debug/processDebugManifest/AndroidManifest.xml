@@ -69,6 +69,7 @@
         </service>
         <service
             android:name="com.example.service.MyInputMethodService"
+            android:enabled="true"
             android:exported="false"
             android:label="@string/input_label"
             android:permission="android.permission.BIND_INPUT_METHOD" >

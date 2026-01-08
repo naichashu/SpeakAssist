@@ -8,6 +8,8 @@ import android.widget.Button
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.example.service.MyAccessibilityService
+import com.example.service.MyInputMethodService
 import com.example.ui.viewmodel.ChatViewModel
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.delay
@@ -49,10 +51,20 @@ class MainActivity : AppCompatActivity() {
 
     }
 
+    /**
+     * 启动无障碍服务
+     */
     private fun openAccessibilitySettings() {
-        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        if (!MyAccessibilityService.isServiceEnabled()) {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            })
         }
-        startActivity(intent)
+
+        if (!MyInputMethodService.isEnabled(this)) {
+            startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            })
+        }
     }
 }

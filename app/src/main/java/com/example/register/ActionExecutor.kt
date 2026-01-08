@@ -42,8 +42,6 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         const val TAG = "ActionExecutor"
     }
 
-    private var inputService: MyInputMethodService? = null
-
     /**
      * 执行动作
      */
@@ -435,46 +433,22 @@ class ActionExecutor(private val service: MyAccessibilityService) {
     /**
      * 输入文本
      */
-    private suspend fun type(actionObj: JsonObject): ActionResult {
+    private fun type(actionObj: JsonObject): ActionResult {
         val text = actionObj.get("text")?.asString ?: return ActionResult(
             success = false,
             message = "缺少text参数"
         )
 
         // 检查输入法服务是否已启用
-        if(!MyInputMethodService.isEnabled(service)) {
-            Toast.makeText(service, "请先启用输入法服务", Toast.LENGTH_SHORT).show()
-            try {
-                // 核心 Intent：跳转到输入法设置界面
-                val intent = Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)
-                // 添加标记：新建任务栈，避免返回时混乱
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                service.startActivity(intent)
-
-                // 提示用户
-                Toast.makeText(service, "已为你跳转到输入法设置页面", Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) {
-                // 兼容部分手机路径不同的情况，降级跳转到系统设置主页面
-                val fallbackIntent = Intent(Settings.ACTION_SETTINGS)
-                fallbackIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                service.startActivity(fallbackIntent)
-
-                Toast.makeText(service, "未找到输入法设置入口，已跳转到系统设置主页面，请手动查找「语言和输入法」",
-                    Toast.LENGTH_LONG).show()
-            }
-
-            delay(100)
-
-            if (!MyInputMethodService.isEnabled(service)) {
-                return ActionResult(
-                    success = false,
-                    message = "输入法服务未启用，无法完成输入操作"
-                )
-            }
+        if (!MyInputMethodService.isEnabled(service)) {
+            return ActionResult(
+                success = false,
+                message = "输入法服务未启用，无法完成输入操作"
+            )
         }
 
-        inputService = MyInputMethodService.getInstance()
-        val inputSuccess = inputService?.typeText(text) ?: false
+        // 输入文本
+        val inputSuccess = MyInputMethodService.inputText(text)
 
         // 返回结果
         return if (inputSuccess) {
@@ -486,7 +460,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         } else {
             ActionResult(
                 success = false,
-                message = "输入法已启用，但输入失败（可能未激活输入框）"
+                message = "输入法已启用，但输入失败"
             )
         }
 
