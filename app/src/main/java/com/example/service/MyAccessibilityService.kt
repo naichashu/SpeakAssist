@@ -3,6 +3,8 @@ package com.example.service
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
+import android.os.Build
+import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 
 /**
@@ -11,6 +13,7 @@ import android.view.accessibility.AccessibilityEvent
 class MyAccessibilityService : AccessibilityService() {
 
     companion object {
+        private const val TAG = "MyAccessibilityService"
         private var autoAccessibilityService: MyAccessibilityService? = null
 
         // 提供全局获取实例的入口
@@ -55,7 +58,7 @@ class MyAccessibilityService : AccessibilityService() {
      * 内部实现：根据 (x, y) 坐标执行点击操作
      * @param x 屏幕绝对X坐标
      * @param y 屏幕绝对Y坐标
-     * @return 是否成功发起手势请求（注意：不是“点击完成”，只是“请求已发送”）
+     * @return 是否成功点击完成
      */
     fun clickByNode(x: Float, y: Float): Boolean {
         // 构建手势路径
@@ -63,24 +66,22 @@ class MyAccessibilityService : AccessibilityService() {
         path.moveTo(x, y)
 
         // 构建笔画描述：参数不变，path已正确使用Float坐标
-        val stroke = GestureDescription.StrokeDescription(path, 0L, 200L)
+        val stroke = GestureDescription.StrokeDescription(path, 0, 100)
 
         // 构建完整手势
         val gesture = GestureDescription.Builder()
             .addStroke(stroke)
             .build()
+        Log.d(TAG, "执行点击：坐标($x, $y)")
 
-        // 分发手势
-        return dispatchGesture(gesture, object : GestureResultCallback() {
-            override fun onCompleted(gestureDescription: GestureDescription) {
-                super.onCompleted(gestureDescription)
-                println("dispatchGesture click onCompleted.")
-            }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            val result = dispatchGesture(gesture, null, null)
 
-            override fun onCancelled(gestureDescription: GestureDescription) {
-                super.onCancelled(gestureDescription)
-                println("dispatchGesture click onCancelled.")
-            }
-        }, null)
+            Log.d(TAG, "点击手势提交${if (result) "成功" else "失败"}")
+            return result
+        } else {
+            Log.e(TAG, "系统版本不支持dispatchGesture")
+            return false
+        }
     }
 }

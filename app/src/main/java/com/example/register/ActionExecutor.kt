@@ -324,8 +324,10 @@ class ActionExecutor(private val service: MyAccessibilityService) {
 //                "wait" -> wait(actionObj)
                 else -> ActionResult(success = false, message = "不支持的操作: $action")
             }
-        } finally {
+        } catch (e: Exception) {
+            ActionResult(success = false, message = "执行动作失败: $action")
         }
+
         return result
     }
 
@@ -381,6 +383,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
      */
     private fun tap(actionObj: JsonObject, screenWidth: Int, screenHeight: Int): ActionResult {
         val element = actionObj.get("element")
+        Log.d(TAG, "点击事件位置: $element")
         if (element.isJsonArray) {
             val arr = element.asJsonArray
             if (arr.size() == 2) {

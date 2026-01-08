@@ -8,8 +8,12 @@
         android:minSdkVersion="24"
         android:targetSdkVersion="36" />
 
+    <!-- 允许访问所有应用 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
+    <!-- 允许显示悬浮窗 -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <queries>
 
@@ -52,7 +56,7 @@
 
         <service
             android:name="com.example.service.MyAccessibilityService"
-            android:exported="true"
+            android:exported="false"
             android:label="@string/accessibility_service_label"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" >
             <intent-filter>
@@ -65,7 +69,7 @@
         </service>
         <service
             android:name="com.example.service.MyInputMethodService"
-            android:exported="true"
+            android:exported="false"
             android:label="@string/input_label"
             android:permission="android.permission.BIND_INPUT_METHOD" >
             <intent-filter>

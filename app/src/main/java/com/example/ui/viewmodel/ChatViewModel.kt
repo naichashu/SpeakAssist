@@ -145,7 +145,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
                 errorSteps++
 
-                if ( errorSteps > 5) {
+                if ( errorSteps > 4) {
                     // 失败也尝试返回应用
                     actionExecutor?.bringAppToForeground()
                     Log.e(TAG, "重试超过上限，结束流程: ${result.message}")
