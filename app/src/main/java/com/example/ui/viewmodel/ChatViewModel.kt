@@ -2,6 +2,7 @@ package com.example.ui.viewmodel
 
 import android.app.Application
 import android.util.Log
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.network.ModelClient
@@ -41,6 +42,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     suspend fun executeTaskLoop(userPrompt: String, modelName: String) {
         AppRegister.initialize(getApplication()) // 初始化注册，以确保最新的映射配置被加载
+        val accessibilityService = MyAccessibilityService.getInstance() ?: return
         Log.d(TAG, "开始执行任务")
         var stepCount = 0
         val maxSteps = 50
@@ -50,6 +52,35 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val client = modelClient ?: return
             Log.d(TAG, "执行步骤 $stepCount")
 
+            val currentApp = accessibilityService.currentApp.value
+            val myProjectApp = getApplication<Application>().packageName
+            val isMyProjectApp = currentApp == myProjectApp
+            Log.d(TAG, "当前应用: $currentApp $myProjectApp")
+
+//            if (isMyProjectApp && stepCount > 0) {
+//                Toast.makeText(getApplication(), "请返回项目应用", Toast.LENGTH_LONG).show()
+//                delay(3000)
+//                continue
+//            }
+
+            val screenShot = if (isMyProjectApp) {
+                null
+            } else {
+                accessibilityService.getScreenshotSuspend()
+            }
+            Log.d(TAG, "获取屏幕截图结果: $screenShot")
+
+            if (screenShot == null && !isMyProjectApp) {
+                val androidVersion = android.os.Build.VERSION.SDK_INT
+                val errorMessage = if (androidVersion < android.os.Build.VERSION_CODES.R) {
+                    "无法获取屏幕截图：需要 Android 11 (API 30) 及以上版本，当前版本: Android ${android.os.Build.VERSION.RELEASE} (API $androidVersion)"
+                } else {
+                    "无法获取屏幕截图，请确保无障碍服务已启用并授予截图权限。如果已启用，请尝试重启应用。"
+                }
+                Toast.makeText(getApplication(), errorMessage, Toast.LENGTH_LONG).show()
+                return
+            }
+
             if (stepCount == 0) {
                 // 第一次调用：添加系统消息和用户消息（包含原始任务）
                 if (messageContext.isEmpty()) {
@@ -58,14 +89,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 messageContext.add(
                     client.createUserMessage(
                         userPrompt,
-                        null,
-                        null,
+                        screenShot,
+                        currentApp,
                         compressionLevel
                     )
                 )
             } else {
                 // 后续调用：只添加屏幕信息
-                messageContext.add(client.createScreenInfoMessage(null, null, compressionLevel))
+                messageContext.add(client.createScreenInfoMessage(screenShot, currentApp, compressionLevel))
             }
 
             // 调用模型（使用消息上下文）

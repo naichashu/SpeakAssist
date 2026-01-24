@@ -2,10 +2,16 @@ package com.example.service
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.graphics.Bitmap
 import android.graphics.Path
 import android.os.Build
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 /**
  * 无障碍服务
@@ -23,6 +29,9 @@ class MyAccessibilityService : AccessibilityService() {
         fun isServiceEnabled(): Boolean = autoAccessibilityService != null
     }
 
+    private val _currentApp = MutableStateFlow<String?>(null)
+    val currentApp: StateFlow<String?> = _currentApp.asStateFlow()
+
     /**
      * 创建服务时调用
      */
@@ -35,7 +44,11 @@ class MyAccessibilityService : AccessibilityService() {
      * 监听事件
      */
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        TODO("Not yet implemented")
+        event?.let {
+            if (it.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+                _currentApp.value = it.packageName?.toString()
+            }
+        }
     }
 
 
@@ -83,5 +96,38 @@ class MyAccessibilityService : AccessibilityService() {
             Log.e(TAG, "系统版本不支持dispatchGesture")
             return false
         }
+    }
+
+    suspend fun getScreenshotSuspend() : Bitmap? = suspendCancellableCoroutine { cont ->
+        getScreenshot {
+            cont.resume(it)
+        }
+    }
+
+    /**
+     * 获取屏幕截图
+     * @param callback：截图结果回调
+     */
+    fun getScreenshot(callback: (Bitmap?) -> Unit) {
+        Log.d(TAG, "开始截图")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            mainExecutor.execute {
+                takeScreenshot(android.view.Display.DEFAULT_DISPLAY, mainExecutor,
+                    object : TakeScreenshotCallback {
+                        override fun onFailure(errorCode: Int) {
+                            callback(null)
+                        }
+
+                        override fun onSuccess(screenshot: ScreenshotResult) {
+                            val hardwareBuffer = screenshot.hardwareBuffer
+                            val hardwareBitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, null)
+                            hardwareBuffer.close()
+                            val bitmap = hardwareBitmap?.copy(Bitmap.Config.ARGB_8888, false)
+                            callback(bitmap)
+                        }
+
+                    })
+            }
+        } else callback(null)
     }
 }

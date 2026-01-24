@@ -15,6 +15,17 @@
     <!-- 允许显示悬浮窗 -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
+    <!-- 截图所需的权限 -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.MOUNT_UNMOUNT_FILESYSTEMS" />
+    <uses-permission android:name="android.permission.MEDIA_CONTENT_CONTROL" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+
+    <!-- 使用 WRITE_SECURE_SETTINGS 通过系统设置无感重启无障碍服务（需 adb 授权或系统签名） -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+
     <queries>
 
         <!-- 允许查询所有应用（兼容QUERY_ALL_PACKAGES的替代方案） -->
