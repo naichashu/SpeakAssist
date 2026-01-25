@@ -257,6 +257,14 @@ class ModelClient(
         return ChatMessage(role = "user", content = userContent)
     }
 
+    fun removeImagesFromMessage(message: ChatMessage): ChatMessage {
+        val textOnlyContent = message.content.filter { it.type == "text" }
+        return ChatMessage(
+            role = message.role,
+            content = textOnlyContent
+        )
+    }
+
     /**
     * 构建屏幕信息（使用 JsonObject 确保转义安全）
     */

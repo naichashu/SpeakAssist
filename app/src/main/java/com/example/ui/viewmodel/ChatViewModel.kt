@@ -114,6 +114,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             // 添加助手消息到上下文
             messageContext.add(client.createAssistantMessage(response.thinking, response.action))
 
+            // 从上下文中移除最后一条用户消息的图片（节省 token，参考原项目）：在执行动作后，移除图片只保留文本，这样可以节省大量 token
+            if (messageContext.size >= 2) {
+                val lastUserMessageIndex = messageContext.size - 2
+                val lastUserMessage = messageContext[lastUserMessageIndex]
+                if (lastUserMessage.role == "user") {
+                    // 移除图片，只保留文本
+                    messageContext[lastUserMessageIndex] = client.removeImagesFromMessage(lastUserMessage)
+                    Log.d(TAG, "已移除最后一条用户消息中的图片")
+                }
+            }
+
             // 如果模型返回的是 finish，则直接结束，不再执行动作
             val isFinishAction = response.action.contains("\"_metadata\":\"finish\"") ||
                     response.action.contains("\"_metadata\": \"finish\"") ||
@@ -124,8 +135,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             //  执行动作
             val result = actionExecutor?.execute(
                 response.action,
-                null ?: displayMetrics.widthPixels,
-                null ?: displayMetrics.heightPixels
+                screenShot?.width ?: displayMetrics.widthPixels,
+                screenShot?.height ?: displayMetrics.heightPixels
             ) ?: ActionResult(false, "ActionExecutor is null")
 
             Log .d(TAG, "执行动作结果: ${result.success}: ${result.message}")
