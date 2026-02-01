@@ -2,14 +2,12 @@ package com.example.register
 
 import android.content.Intent
 import android.util.Log
-import android.widget.Toast
 import com.example.service.MyAccessibilityService
 import com.example.service.MyInputMethodService
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.google.gson.stream.JsonReader
 import java.io.StringReader
-import android.provider.Settings
 import kotlinx.coroutines.delay
 
 /**
@@ -332,7 +330,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
     /**
      * 启动应用
      */
-    private fun launchApp(actionObj: JsonObject): ActionResult {
+    private suspend fun launchApp(actionObj: JsonObject): ActionResult {
         // 1. 提取 app 参数并校验
         val appName = actionObj.get("app")?.asString ?: return ActionResult(
             success = false,
@@ -361,6 +359,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
 
             // 5. 启动应用
             service.startActivity(intent)
+            delay(1000)
 
             // 6. 启动成功，返回成功结果
             return ActionResult(

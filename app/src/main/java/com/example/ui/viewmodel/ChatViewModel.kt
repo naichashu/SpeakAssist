@@ -96,7 +96,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 )
             } else {
                 // 后续调用：只添加屏幕信息
-                messageContext.add(client.createScreenInfoMessage(screenShot, currentApp, compressionLevel))
+                messageContext.add(
+                    client.createScreenInfoMessage(
+                        screenShot,
+                        currentApp,
+                        compressionLevel
+                    )
+                )
             }
 
             // 调用模型（使用消息上下文）
@@ -120,7 +126,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val lastUserMessage = messageContext[lastUserMessageIndex]
                 if (lastUserMessage.role == "user") {
                     // 移除图片，只保留文本
-                    messageContext[lastUserMessageIndex] = client.removeImagesFromMessage(lastUserMessage)
+                    messageContext[lastUserMessageIndex] =
+                        client.removeImagesFromMessage(lastUserMessage)
                     Log.d(TAG, "已移除最后一条用户消息中的图片")
                 }
             }
@@ -139,7 +146,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 screenShot?.height ?: displayMetrics.heightPixels
             ) ?: ActionResult(false, "ActionExecutor is null")
 
-            Log .d(TAG, "执行动作结果: ${result.success}: ${result.message}")
+            Log.d(TAG, "执行动作结果: ${result.success}: ${result.message}")
 
             if (isFinishAction) {
                 actionExecutor?.bringAppToForeground()
@@ -161,7 +168,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             // 错误处理
-            if  (!result.success) {
+            if (!result.success) {
                 val errorText = buildString {
                     appendLine("上一步你的输出错误，${result.message?.take(200)}")
                     appendLine("请严格按照系统提示中的格式，仅输出以下两种之一：")
@@ -187,7 +194,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
                 errorSteps++
 
-                if ( errorSteps > 4) {
+                if (errorSteps > 4) {
                     // 失败也尝试返回应用
                     actionExecutor?.bringAppToForeground()
                     Log.e(TAG, "重试超过上限，结束流程: ${result.message}")
@@ -195,7 +202,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 // 重试：继续下一轮循环
-                delay(900)
+                delay(1000)
                 continue
             } else {
                 // 成功-重试计数
@@ -203,7 +210,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             // 等待界面稳定
-            delay(900)
+            delay(1000)
             stepCount++
         }
         actionExecutor?.bringAppToForeground()

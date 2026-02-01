@@ -72,12 +72,13 @@ class MyInputMethodService : InputMethodService() {
             setTextColor("#333333".toColorInt())
             setPadding(20, 15, 20, 15)
         }
-        root.addView(statusTv, FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply {
-            gravity = Gravity.CENTER
-        })
+        root.addView(
+            statusTv, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.CENTER
+            })
 
         return root
     }

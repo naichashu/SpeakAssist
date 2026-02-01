@@ -148,7 +148,8 @@ class ModelClient(
 
         // 尝试从内容中提取JSON
         if (!action.startsWith("{") && !action.startsWith("do(") && !action.startsWith("finish(")) {
-            val funcMatch = Regex("""(do|finish)\s*\([^)]+\)""", RegexOption.IGNORE_CASE).find(content)
+            val funcMatch =
+                Regex("""(do|finish)\s*\([^)]+\)""", RegexOption.IGNORE_CASE).find(content)
             if (funcMatch != null) {
                 action = funcMatch.value
             } else {
@@ -180,6 +181,7 @@ class ModelClient(
                     if (startIndex == -1) startIndex = i
                     braceCount++
                 }
+
                 '}' -> {
                     braceCount--
                     if (braceCount == 0 && startIndex != -1) {
@@ -187,7 +189,8 @@ class ModelClient(
                         try {
                             parseString(candidate)
                             candidates.add(candidate)
-                        } catch (e: Exception) {}
+                        } catch (e: Exception) {
+                        }
                         startIndex = -1
                     }
                 }
@@ -218,14 +221,23 @@ class ModelClient(
     /**
      * 创建用户消息（第一次调用，包含原始任务）
      */
-    fun createUserMessage(userPrompt: String, screenshot: Bitmap?, currentApp: String?, quality: Int = 80): ChatMessage {
+    fun createUserMessage(
+        userPrompt: String,
+        screenshot: Bitmap?,
+        currentApp: String?,
+        quality: Int = 80
+    ): ChatMessage {
         return createMessage(userPrompt, screenshot, currentApp, quality)
     }
 
     /**
      * 创建屏幕信息消息（后续调用，只包含屏幕信息）
      */
-    fun createScreenInfoMessage(screenshot: Bitmap?, currentApp: String?, quality: Int = 80): ChatMessage {
+    fun createScreenInfoMessage(
+        screenshot: Bitmap?,
+        currentApp: String?,
+        quality: Int = 80
+    ): ChatMessage {
         return createMessage("** Screen Info **", screenshot, currentApp, quality)
     }
 
@@ -266,8 +278,8 @@ class ModelClient(
     }
 
     /**
-    * 构建屏幕信息（使用 JsonObject 确保转义安全）
-    */
+     * 构建屏幕信息（使用 JsonObject 确保转义安全）
+     */
     private fun buildScreenInfo(currentApp: String?): String {
         val json = JsonObject()
         json.addProperty("current_app", currentApp ?: "Unknown")
