@@ -163,7 +163,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             // 错误处理
             if  (!result.success) {
                 val errorText = buildString {
-                    appendLine("上一步你的输出错误，${result.message}")
+                    appendLine("上一步你的输出错误，${result.message?.take(200)}")
                     appendLine("请严格按照系统提示中的格式，仅输出以下两种之一：")
                     appendLine("1. do(action=\"...\", ...)")
                     appendLine("2. finish(message=\"...\")")

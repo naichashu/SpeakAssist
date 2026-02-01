@@ -4,20 +4,18 @@ import android.content.Context
 import android.inputmethodservice.InputMethodService
 import android.util.Log
 import android.view.inputmethod.EditorInfo
-import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
-import android.os.Handler
-import android.os.Looper
+import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.TextView
+import androidx.core.graphics.toColorInt
 
 /**
  * 输入法服务
  */
 class MyInputMethodService : InputMethodService() {
-
-    // 当前的输入连接（绑定有焦点的输入框）
-    private var currentInputConn: InputConnection? = null
-    private val handler = Handler(Looper.getMainLooper())
-
     companion object {
         private const val TAG = "MyInputMethodService"
         private var instance: MyInputMethodService? = null
@@ -51,22 +49,42 @@ class MyInputMethodService : InputMethodService() {
     }
 
     /**
-     * 绑定输入框时，会调用此方法
-     */
-    override fun onBindInput() {
-        super.onBindInput()
-        currentInputConn = currentInputConnection
-        Log.d(TAG, "已绑定输入框，输入连接：${currentInputConn != null}")
-    }
-
-    /**
      * 启动输入法时，会调用此方法
      */
     override fun onStartInputView(editorInfo: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(editorInfo, restarting)
-        // 不调用父类方法，避免显示键盘界面
-        Log.d(TAG, "跳过显示输入法键盘")
+        Log.d(TAG, "启动输入法")
     }
+
+    // 1. 实现输入法界面（哪怕简单显示，也符合系统规范）
+    override fun onCreateInputView(): View {
+        // 构建一个简单的根布局
+        val root = FrameLayout(this)
+        root.layoutParams = ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+
+        // 添加一个简单的状态提示文本
+        val statusTv = TextView(this).apply {
+            text = "SpeakAssist输入法已就绪"
+            textSize = 12f
+            setTextColor("#333333".toColorInt())
+            setPadding(20, 15, 20, 15)
+        }
+        root.addView(statusTv, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply {
+            gravity = Gravity.CENTER
+        })
+
+        return root
+    }
+
+    override fun onEvaluateFullscreenMode(): Boolean = false
+    override fun onEvaluateInputViewShown(): Boolean = true
+
 
     /**
      * 核心方法：向当前有焦点的输入框输入文本
@@ -77,22 +95,17 @@ class MyInputMethodService : InputMethodService() {
         if (text.isBlank()) return false
 
         // 获取当前输入连接（必须有焦点的输入框才会有）
-        val inputConn = currentInputConn ?: currentInputConnection
+        val inputConn = currentInputConnection
         if (inputConn == null) {
             Log.d(TAG, "输入失败：无可用的输入连接（未激活输入框）")
             return false
         }
 
         try {
-            // 1. 清空输入框已有内容
-            inputConn.deleteSurroundingText(Int.MAX_VALUE, Int.MAX_VALUE)
-
-            // 2. 提交文本到输入框
-            handler.post {
-                inputConn.commitText(text, text.length)
-                Log.d(TAG, "文本输入成功：$text")
-            }
-            return true
+            // 输入文本
+            val isReallySuccess = inputConn.commitText(text, text.length)
+            Log.d(TAG, "文本输入成功：$text")
+            return isReallySuccess
         } catch (e: Exception) {
             Log.d(TAG, "输入文本失败：${e.message}", e)
             return false
