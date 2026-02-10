@@ -3,6 +3,8 @@
 
 大模型：https://github.com/zai-org/Open-AutoGLM?tab=readme-ov-file
 
+参考项目：https://github.com/xinzezhu/Open-AutoGLM-Android
+
 # 1.使用API
 
 重新使用项目：下次打开终端想运行项目时，只需执行以下 3 步即可快速恢复环境：
