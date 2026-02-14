@@ -312,12 +312,12 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                 "launch" -> launchApp(actionObj)
                 "tap" -> tap(actionObj, screenWidth, screenHeight)
                 "type" -> type(actionObj)
-//                "swipe" -> swipe(actionObj, screenWidth, screenHeight)
-//                "back" -> back()
-//                "home" -> home()
-//                "longpress", "long press" -> longPress(actionObj, screenWidth, screenHeight)
-//                "doubletap", "double tap" -> doubleTap(actionObj, screenWidth, screenHeight)
-//                "wait" -> wait(actionObj)
+                "swipe" -> swipe(actionObj, screenWidth, screenHeight)
+                "back" -> back()
+                "home" -> home()
+                "longpress", "long press" -> longPress(actionObj, screenWidth, screenHeight)
+                "doubletap", "double tap" -> doubleTap(actionObj, screenWidth, screenHeight)
+                "wait" -> wait(actionObj)
                 else -> ActionResult(success = false, message = "不支持的操作: $action")
             }
         } catch (e: Exception) {
@@ -463,6 +463,364 @@ class ActionExecutor(private val service: MyAccessibilityService) {
             )
         }
 
+    }
+
+    /**
+     * 滑动屏幕
+     * 支持两种格式：
+     * 1. element: [[x1, y1], [x2, y2]]（千分比坐标）
+     * 2. start: [x1, y1], end: [x2, y2]
+     * @param actionObj 包含滑动参数的JSON对象
+     * @param screenWidth 屏幕宽度像素
+     * @param screenHeight 屏幕高度像素
+     */
+    private fun swipe(actionObj: JsonObject, screenWidth: Int, screenHeight: Int): ActionResult {
+        val element = actionObj.get("element")
+        val start = actionObj.get("start")
+        val end = actionObj.get("end")
+
+        Log.d(TAG, "滑动事件 - element: $element, start: $start, end: $end")
+
+        // 解析坐标变量
+        var startX: Float = 0f
+        var startY: Float = 0f
+        var endX: Float = 0f
+        var endY: Float = 0f
+
+        // 优先使用 start/end 格式
+        if (start != null && end != null) {
+            // 格式：start: [x, y], end: [x, y]
+            if (!start.isJsonArray || start.asJsonArray.size() != 2 ||
+                !end.isJsonArray || end.asJsonArray.size() != 2) {
+                return ActionResult(
+                    success = false,
+                    message = "参数错误：start和end字段需为坐标数组 [x, y]"
+                )
+            }
+            startX = start.asJsonArray[0].asFloat
+            startY = start.asJsonArray[1].asFloat
+            endX = end.asJsonArray[0].asFloat
+            endY = end.asJsonArray[1].asFloat
+        }
+        // 其次使用 element 格式
+        else if (element != null) {
+            // 格式：element: [[x1, y1], [x2, y2]]
+            if (!element.isJsonArray) {
+                return ActionResult(
+                    success = false,
+                    message = "参数错误：element字段需为数组格式"
+                )
+            }
+
+            val arr = element.asJsonArray
+            if (arr.size() != 2) {
+                return ActionResult(
+                    success = false,
+                    message = "参数错误：element数组长度必须为2，表示起点和终点"
+                )
+            }
+
+            // 解析起点坐标
+            if (!arr[0].isJsonArray || arr[0].asJsonArray.size() != 2) {
+                return ActionResult(
+                    success = false,
+                    message = "参数错误：起点坐标格式错误，应为 [x1, y1]"
+                )
+            }
+            val startArr = arr[0].asJsonArray
+            startX = startArr[0].asFloat
+            startY = startArr[1].asFloat
+
+            // 解析终点坐标
+            if (!arr[1].isJsonArray || arr[1].asJsonArray.size() != 2) {
+                return ActionResult(
+                    success = false,
+                    message = "参数错误：终点坐标格式错误，应为 [x2, y2]"
+                )
+            }
+            val endArr = arr[1].asJsonArray
+            endX = endArr[0].asFloat
+            endY = endArr[1].asFloat
+        } else {
+            return ActionResult(
+                success = false,
+                message = "参数错误：swipe需要element字段或start/end字段"
+            )
+        }
+
+        // 验证坐标范围
+        if (startX < 0 || startX > 1000 || startY < 0 || startY > 1000 ||
+            endX < 0 || endX > 1000 || endY < 0 || endY > 1000) {
+            return ActionResult(
+                success = false,
+                message = "坐标超出范围：x和y应在0-1000之间"
+            )
+        }
+
+        // 转换为绝对坐标
+        val (absStartX, absStartY) = relativeToAbsolute(listOf(startX, startY), screenWidth, screenHeight)
+        val (absEndX, absEndY) = relativeToAbsolute(listOf(endX, endY), screenWidth, screenHeight)
+
+        // 验证绝对坐标是否在屏幕范围内
+        if (absStartX < 0 || absStartX > screenWidth || absStartY < 0 || absStartY > screenHeight ||
+            absEndX < 0 || absEndX > screenWidth || absEndY < 0 || absEndY > screenHeight) {
+            return ActionResult(
+                success = false,
+                message = "坐标超出屏幕范围：屏幕尺寸为 ${screenWidth}x$screenHeight"
+            )
+        }
+
+        return try {
+            val success = service.swipeByNode(absStartX, absStartY, absEndX, absEndY)
+            if (success) {
+                ActionResult(
+                    success = true,
+                    message = "滑动成功：从($absStartX, $absStartY)到($absEndX, $absEndY)",
+                    actionDetail = ActionDetail(type = "swipe", x1 = absStartX, y1 = absStartY, x2 = absEndX, y2 = absEndY)
+                )
+            } else {
+                ActionResult(
+                    success = false,
+                    message = "滑动执行失败"
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "滑动执行异常", e)
+            ActionResult(
+                success = false,
+                message = "滑动执行异常：${e.message}"
+            )
+        }
+    }
+
+    /**
+     * 返回上一页
+     */
+    private fun back(): ActionResult {
+        return try {
+            val success = service.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
+            if (success) {
+                Log.d(TAG, "执行返回成功")
+                ActionResult(
+                    success = true,
+                    message = "返回上一页成功",
+                    actionDetail = ActionDetail(type = "back")
+                )
+            } else {
+                Log.e(TAG, "执行返回失败：无障碍服务无法执行返回操作")
+                ActionResult(
+                    success = false,
+                    message = "执行返回失败：设备可能不支持此操作"
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "执行返回异常", e)
+            ActionResult(
+                success = false,
+                message = "执行返回异常：${e.message}"
+            )
+        }
+    }
+
+    /**
+     * 返回手机桌面
+     */
+    private fun home(): ActionResult {
+        return try {
+            val success = service.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME)
+            if (success) {
+                Log.d(TAG, "执行返回桌面成功")
+                ActionResult(
+                    success = true,
+                    message = "返回桌面成功",
+                    actionDetail = ActionDetail(type = "home")
+                )
+            } else {
+                Log.e(TAG, "执行返回桌面失败：无障碍服务无法执行此操作")
+                ActionResult(
+                    success = false,
+                    message = "执行返回桌面失败：设备可能不支持此操作"
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "执行返回桌面异常", e)
+            ActionResult(
+                success = false,
+                message = "执行返回桌面异常：${e.message}"
+            )
+        }
+    }
+
+    /**
+     * 长按屏幕
+     * @param actionObj 包含element字段的JSON对象，格式为 [x, y]（千分比坐标）
+     * @param screenWidth 屏幕宽度像素
+     * @param screenHeight 屏幕高度像素
+     */
+    private fun longPress(actionObj: JsonObject, screenWidth: Int, screenHeight: Int): ActionResult {
+        val element = actionObj.get("element")
+        Log.d(TAG, "长按事件位置: $element")
+
+        if (element == null || !element.isJsonArray) {
+            return ActionResult(
+                success = false,
+                message = "参数错误：longpress需要element字段，格式为 [x, y]（x=屏幕宽度千分比0-1000，y=屏幕高度千分比0-1000）"
+            )
+        }
+
+        val arr = element.asJsonArray
+        if (arr.size() != 2) {
+            return ActionResult(
+                success = false,
+                message = "参数错误：element数组长度必须为2"
+            )
+        }
+
+        // 验证坐标范围
+        val relX = arr[0].asFloat
+        val relY = arr[1].asFloat
+        if (relX < 0 || relX > 1000 || relY < 0 || relY > 1000) {
+            return ActionResult(
+                success = false,
+                message = "坐标超出范围：x和y应在0-1000之间"
+            )
+        }
+
+        // 转换为绝对坐标
+        val (x, y) = relativeToAbsolute(listOf(relX, relY), screenWidth, screenHeight)
+
+        // 验证绝对坐标是否在屏幕范围内
+        if (x < 0 || x > screenWidth || y < 0 || y > screenHeight) {
+            return ActionResult(
+                success = false,
+                message = "坐标超出屏幕范围：屏幕尺寸为 ${screenWidth}x$screenHeight"
+            )
+        }
+
+        return try {
+            val success = service.longPressByNode(x, y)
+            if (success) {
+                ActionResult(
+                    success = true,
+                    message = "长按成功：坐标($x, $y)",
+                    actionDetail = ActionDetail(type = "longpress", x1 = x, y1 = y)
+                )
+            } else {
+                ActionResult(
+                    success = false,
+                    message = "长按执行失败"
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "长按执行异常", e)
+            ActionResult(
+                success = false,
+                message = "长按执行异常：${e.message}"
+            )
+        }
+    }
+
+    /**
+     * 双击屏幕
+     * @param actionObj 包含element字段的JSON对象，格式为 [x, y]（千分比坐标）
+     * @param screenWidth 屏幕宽度像素
+     * @param screenHeight 屏幕高度像素
+     */
+    private fun doubleTap(actionObj: JsonObject, screenWidth: Int, screenHeight: Int): ActionResult {
+        val element = actionObj.get("element")
+        Log.d(TAG, "双击事件位置: $element")
+
+        if (element == null || !element.isJsonArray) {
+            return ActionResult(
+                success = false,
+                message = "参数错误：doubletap需要element字段，格式为 [x, y]（x=屏幕宽度千分比0-1000，y=屏幕高度千分比0-1000）"
+            )
+        }
+
+        val arr = element.asJsonArray
+        if (arr.size() != 2) {
+            return ActionResult(
+                success = false,
+                message = "参数错误：element数组长度必须为2"
+            )
+        }
+
+        // 验证坐标范围
+        val relX = arr[0].asFloat
+        val relY = arr[1].asFloat
+        if (relX < 0 || relX > 1000 || relY < 0 || relY > 1000) {
+            return ActionResult(
+                success = false,
+                message = "坐标超出范围：x和y应在0-1000之间"
+            )
+        }
+
+        // 转换为绝对坐标
+        val (x, y) = relativeToAbsolute(listOf(relX, relY), screenWidth, screenHeight)
+
+        // 验证绝对坐标是否在屏幕范围内
+        if (x < 0 || x > screenWidth || y < 0 || y > screenHeight) {
+            return ActionResult(
+                success = false,
+                message = "坐标超出屏幕范围：屏幕尺寸为 ${screenWidth}x$screenHeight"
+            )
+        }
+
+        return try {
+            val success = service.doubleTapByNode(x, y)
+            if (success) {
+                ActionResult(
+                    success = true,
+                    message = "双击成功：坐标($x, $y)",
+                    actionDetail = ActionDetail(type = "doubletap", x1 = x, y1 = y)
+                )
+            } else {
+                ActionResult(
+                    success = false,
+                    message = "双击执行失败"
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "双击执行异常", e)
+            ActionResult(
+                success = false,
+                message = "双击执行异常：${e.message}"
+            )
+        }
+    }
+
+    /**
+     * 等待指定时间
+     * @param actionObj 包含delay字段的JSON对象，单位为毫秒
+     */
+    private suspend fun wait(actionObj: JsonObject): ActionResult {
+        val delay = actionObj.get("delay")?.asLong
+
+        if (delay == null || delay <= 0) {
+            return ActionResult(
+                success = false,
+                message = "参数错误：wait需要有效的delay参数（毫秒）"
+            )
+        }
+
+        // 限制最大等待时间，防止意外长时间等待
+        val maxDelay = 30000L // 30秒
+        val actualDelay = minOf(delay, maxDelay)
+
+        Log.d(TAG, "等待 ${actualDelay}ms")
+        delay(actualDelay)
+
+        val message = if (delay > maxDelay) {
+            "等待完成（已限制为${maxDelay}ms，原请求为${delay}ms）"
+        } else {
+            "等待完成：${delay}ms"
+        }
+
+        return ActionResult(
+            success = true,
+            message = message,
+            actionDetail = ActionDetail(type = "wait")
+        )
     }
 
 }
