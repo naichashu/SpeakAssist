@@ -6,6 +6,7 @@ drawable ic_launcher_background
 drawable ic_launcher_foreground
 id btnExecute
 id btnStart
+id btnVoice
 id etInput
 id imageView
 id main
@@ -16,8 +17,12 @@ mipmap ic_launcher_round
 string accessibility_service_description
 string accessibility_service_label
 string app_name
+string input_hint
 string input_label
 string system_prompt_template
+string voice_input_description
+string voice_listening
+string voice_permission_required
 style AppTheme
 style Base.Theme.SpeakAssist
 style Theme.SpeakAssist

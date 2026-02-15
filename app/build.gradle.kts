@@ -74,4 +74,7 @@ dependencies {
 
     // ViewModel + Compose 桥接（核心依赖）
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
+
+    // 讯飞语音 SDK（从 libs 目录加载）
+    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar", "*.jar"))))
 }

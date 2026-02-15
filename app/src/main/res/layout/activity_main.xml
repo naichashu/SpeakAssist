@@ -7,16 +7,18 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <!-- 文本输入框：输入需要的操作（如“打开微信”“打开支付宝”） -->
+    <!-- 文本输入框：输入需要的操作（如"打开微信""打开支付宝"） -->
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/tilInput"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:hint="请输入需要执行的操作"
+        android:hint="@string/input_hint"
         android:layout_marginTop="40dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="8dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintEnd_toStartOf="@+id/btnVoice">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/etInput"
@@ -27,6 +29,19 @@
             android:inputType="textMultiLine"/>
 
     </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- 语音输入按钮 -->
+    <ImageButton
+        android:id="@+id/btnVoice"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginEnd="16dp"
+        android:src="@android:drawable/ic_btn_speak_now"
+        android:contentDescription="@string/voice_input_description"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        app:layout_constraintTop_toTopOf="@+id/tilInput"
+        app:layout_constraintBottom_toBottomOf="@+id/tilInput"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <!-- 执行按钮：点击后触发操作 -->
     <com.google.android.material.button.MaterialButton

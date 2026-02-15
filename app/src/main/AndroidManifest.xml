@@ -7,6 +7,9 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="PackageVisibilityPolicy,QueryAllPackagesPermission" />
 
+    <!-- 语音识别所需权限 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
     <!-- 允许显示悬浮窗 -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 

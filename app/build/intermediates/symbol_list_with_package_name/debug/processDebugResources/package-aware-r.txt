@@ -3698,6 +3698,7 @@ id bounceEnd
 id bounceStart
 id btnExecute
 id btnStart
+id btnVoice
 id buttonPanel
 id cache_measures
 id callMeasure
@@ -4401,6 +4402,7 @@ string fab_transformation_scrim_behavior
 string fab_transformation_sheet_behavior
 string hide_bottom_view_on_scroll_behavior
 string icon_content_description
+string input_hint
 string input_label
 string item_view_role_description
 string m3_exceed_max_badge_text_suffix
@@ -4518,6 +4520,9 @@ string side_sheet_accessibility_pane_title
 string side_sheet_behavior
 string status_bar_notification_info_overflow
 string system_prompt_template
+string voice_input_description
+string voice_listening
+string voice_permission_required
 style AlertDialog_AppCompat
 style AlertDialog_AppCompat_Light
 style Animation_AppCompat_Dialog

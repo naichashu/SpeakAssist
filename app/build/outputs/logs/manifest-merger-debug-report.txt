@@ -1,9 +1,9 @@
 -- Merging decision tree log ---
 manifest
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:2:1-80:12
-INJECTED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:2:1-80:12
-INJECTED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:2:1-80:12
-INJECTED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:2:1-80:12
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:2:1-83:12
+INJECTED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:2:1-83:12
+INJECTED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:2:1-83:12
+INJECTED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:2:1-83:12
 MERGED from [com.qmuiteam:qmui:2.0.1] C:\Users\zhuwe\.gradle\caches\8.13\transforms\7e52f6d4bbf7d0addee1086b55d8b524\transformed\qmui-2.0.1\AndroidManifest.xml:2:1-9:12
 MERGED from [com.google.android.material:material:1.10.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\7eea1b2972c10743d6522b1d2859593b\transformed\material-1.10.0\AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.constraintlayout:constraintlayout:2.1.4] C:\Users\zhuwe\.gradle\caches\8.13\transforms\db498cb626b630830736d9e28bedf7bf\transformed\constraintlayout-2.1.4\AndroidManifest.xml:2:1-11:12
@@ -71,53 +71,57 @@ ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:7:5-8:77
 		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:8:9-74
 	android:name
 		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:7:22-74
+uses-permission#android.permission.RECORD_AUDIO
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:11:5-71
+	android:name
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:11:22-68
 uses-permission#android.permission.SYSTEM_ALERT_WINDOW
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:11:5-78
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:14:5-78
 	android:name
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:11:22-75
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:14:22-75
 uses-permission#android.permission.READ_EXTERNAL_STORAGE
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:15:5-79
-	android:name
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:15:22-77
-uses-permission#android.permission.WRITE_EXTERNAL_STORAGE
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:16:5-80
-	android:name
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:16:22-78
-uses-permission#android.permission.MOUNT_UNMOUNT_FILESYSTEMS
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:17:5-83
-	android:name
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:17:22-81
-uses-permission#android.permission.MEDIA_CONTENT_CONTROL
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:18:5-80
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:18:5-79
 	android:name
 		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:18:22-77
+uses-permission#android.permission.WRITE_EXTERNAL_STORAGE
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:19:5-80
+	android:name
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:19:22-78
+uses-permission#android.permission.MOUNT_UNMOUNT_FILESYSTEMS
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:20:5-83
+	android:name
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:20:22-81
+uses-permission#android.permission.MEDIA_CONTENT_CONTROL
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:21:5-80
+	android:name
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:21:22-77
 uses-permission#android.permission.MANAGE_EXTERNAL_STORAGE
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:19:5-20:61
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:22:5-23:61
 	tools:ignore
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:20:9-58
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:23:9-58
 	android:name
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:19:22-79
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:22:22-79
 uses-permission#android.permission.WRITE_SECURE_SETTINGS
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:23:5-25:47
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:26:5-28:47
 	tools:ignore
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:25:9-44
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:28:9-44
 	android:name
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:24:9-64
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:27:9-64
 queries
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:27:5-33:15
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:30:5-36:15
 intent#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:29:9-32:18
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:32:9-35:18
 action#android.intent.action.MAIN
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:30:13-65
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:33:13-65
 	android:name
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:30:21-62
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:33:21-62
 category#android.intent.category.LAUNCHER
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:31:13-73
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:34:13-73
 	android:name
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:31:23-70
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:34:23-70
 application
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:35:5-78:19
-INJECTED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:35:5-78:19
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:38:5-81:19
+INJECTED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:38:5-81:19
 MERGED from [com.google.android.material:material:1.10.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\7eea1b2972c10743d6522b1d2859593b\transformed\material-1.10.0\AndroidManifest.xml:22:5-20
 MERGED from [com.google.android.material:material:1.10.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\7eea1b2972c10743d6522b1d2859593b\transformed\material-1.10.0\AndroidManifest.xml:22:5-20
 MERGED from [androidx.constraintlayout:constraintlayout:2.1.4] C:\Users\zhuwe\.gradle\caches\8.13\transforms\db498cb626b630830736d9e28bedf7bf\transformed\constraintlayout-2.1.4\AndroidManifest.xml:9:5-20
@@ -139,75 +143,75 @@ MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\zh
 	android:appComponentFactory
 		ADDED from [androidx.core:core:1.10.1] C:\Users\zhuwe\.gradle\caches\8.13\transforms\24893cd5bb37673ed91d366210daa658\transformed\core-1.10.1\AndroidManifest.xml:28:18-86
 	android:supportsRtl
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:42:9-35
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:45:9-35
 	android:label
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:40:9-41
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:43:9-41
 	android:fullBackupContent
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:38:9-54
-	android:roundIcon
 		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:41:9-54
+	android:roundIcon
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:44:9-54
 	android:icon
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:39:9-43
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:42:9-43
 	android:allowBackup
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:36:9-35
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:39:9-35
 	android:theme
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:43:9-49
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:46:9-49
 	android:dataExtractionRules
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:37:9-65
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:40:9-65
 activity#com.example.speakassist.MainActivity
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:44:9-52:20
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:47:9-55:20
 	android:exported
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:46:13-36
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:49:13-36
 	android:name
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:45:13-41
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:48:13-41
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:47:13-51:29
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:50:13-54:29
 service#com.example.service.MyAccessibilityService
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:54:9-65:19
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:57:9-68:19
 	android:label
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:58:13-64
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:61:13-64
 	android:exported
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:56:13-37
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:59:13-37
 	android:permission
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:57:13-79
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:60:13-79
 	android:name
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:55:13-70
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:58:13-70
 intent-filter#action:name:android.accessibilityservice.AccessibilityService
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:59:13-61:29
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:62:13-64:29
 action#android.accessibilityservice.AccessibilityService
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:60:17-92
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:63:17-92
 	android:name
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:60:25-89
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:63:25-89
 meta-data#android.accessibilityservice
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:62:13-64:72
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:65:13-67:72
 	android:resource
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:64:17-69
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:67:17-69
 	android:name
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:63:17-60
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:66:17-60
 service#com.example.service.MyInputMethodService
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:67:9-77:19
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:70:9-80:19
 	android:enabled
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:70:13-35
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:73:13-35
 	android:label
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:68:13-48
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:71:13-48
 	android:exported
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:69:13-37
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:72:13-37
 	android:permission
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:71:13-70
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:74:13-70
 	android:name
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:67:18-73
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:70:18-73
 intent-filter#action:name:android.view.InputMethod
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:72:13-74:29
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:75:13-77:29
 action#android.view.InputMethod
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:73:17-67
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:76:17-67
 	android:name
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:73:25-64
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:76:25-64
 meta-data#android.view.im
-ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:75:13-76:50
+ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:78:13-79:50
 	android:resource
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:76:17-47
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:79:17-47
 	android:name
-		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:75:24-54
+		ADDED from E:\SpeakAssist\app\src\main\AndroidManifest.xml:78:24-54
 uses-sdk
 INJECTED from E:\SpeakAssist\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from E:\SpeakAssist\app\src\main\AndroidManifest.xml

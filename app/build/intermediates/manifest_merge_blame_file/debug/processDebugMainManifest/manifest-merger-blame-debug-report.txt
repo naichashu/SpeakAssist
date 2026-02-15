@@ -16,220 +16,224 @@
 13-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:7:5-8:77
 13-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:7:22-74
 14
-15    <!-- 允许显示悬浮窗 -->
-16    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-16-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:11:5-78
-16-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:11:22-75
+15    <!-- 语音识别所需权限 -->
+16    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+16-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:11:5-71
+16-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:11:22-68
 17
-18    <!-- 截图所需的权限 -->
+18    <!-- 允许显示悬浮窗 -->
 19    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-19-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:11:5-78
-19-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:11:22-75
-20    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-20-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:15:5-79
-20-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:15:22-77
-21    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-21-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:16:5-80
-21-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:16:22-78
-22    <uses-permission android:name="android.permission.MOUNT_UNMOUNT_FILESYSTEMS" />
-22-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:17:5-83
-22-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:17:22-81
-23    <uses-permission android:name="android.permission.MEDIA_CONTENT_CONTROL" />
-23-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:18:5-80
+19-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:14:5-78
+19-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:14:22-75
+20
+21    <!-- 截图所需的权限 -->
+22    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+22-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:14:5-78
+22-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:14:22-75
+23    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+23-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:18:5-79
 23-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:18:22-77
-24    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
-24-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:19:5-20:61
-24-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:19:22-79
-25
-26    <!-- 使用 WRITE_SECURE_SETTINGS 通过系统设置无感重启无障碍服务（需 adb 授权或系统签名） -->
-27    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
-27-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:23:5-25:47
-27-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:24:9-64
+24    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+24-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:19:5-80
+24-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:19:22-78
+25    <uses-permission android:name="android.permission.MOUNT_UNMOUNT_FILESYSTEMS" />
+25-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:20:5-83
+25-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:20:22-81
+26    <uses-permission android:name="android.permission.MEDIA_CONTENT_CONTROL" />
+26-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:21:5-80
+26-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:21:22-77
+27    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+27-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:22:5-23:61
+27-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:22:22-79
 28
-29    <queries>
-29-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:27:5-33:15
-30
-31        <!-- 允许查询所有应用（兼容QUERY_ALL_PACKAGES的替代方案） -->
-32        <intent>
-32-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:29:9-32:18
-33            <action android:name="android.intent.action.MAIN" />
-33-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:30:13-65
-33-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:30:21-62
-34
-35            <category android:name="android.intent.category.LAUNCHER" />
-35-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:31:13-73
-35-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:31:23-70
-36        </intent>
-37    </queries>
-38
-39    <permission
-39-->[androidx.core:core:1.10.1] C:\Users\zhuwe\.gradle\caches\8.13\transforms\24893cd5bb37673ed91d366210daa658\transformed\core-1.10.1\AndroidManifest.xml:22:5-24:47
-40        android:name="com.example.speakassist.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
-40-->[androidx.core:core:1.10.1] C:\Users\zhuwe\.gradle\caches\8.13\transforms\24893cd5bb37673ed91d366210daa658\transformed\core-1.10.1\AndroidManifest.xml:23:9-81
-41        android:protectionLevel="signature" />
-41-->[androidx.core:core:1.10.1] C:\Users\zhuwe\.gradle\caches\8.13\transforms\24893cd5bb37673ed91d366210daa658\transformed\core-1.10.1\AndroidManifest.xml:24:9-44
-42
-43    <uses-permission android:name="com.example.speakassist.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
-43-->[androidx.core:core:1.10.1] C:\Users\zhuwe\.gradle\caches\8.13\transforms\24893cd5bb37673ed91d366210daa658\transformed\core-1.10.1\AndroidManifest.xml:26:5-97
-43-->[androidx.core:core:1.10.1] C:\Users\zhuwe\.gradle\caches\8.13\transforms\24893cd5bb37673ed91d366210daa658\transformed\core-1.10.1\AndroidManifest.xml:26:22-94
-44
-45    <application
-45-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:35:5-78:19
-46        android:allowBackup="true"
-46-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:36:9-35
-47        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
-47-->[androidx.core:core:1.10.1] C:\Users\zhuwe\.gradle\caches\8.13\transforms\24893cd5bb37673ed91d366210daa658\transformed\core-1.10.1\AndroidManifest.xml:28:18-86
-48        android:dataExtractionRules="@xml/data_extraction_rules"
-48-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:37:9-65
-49        android:debuggable="true"
-50        android:extractNativeLibs="false"
-51        android:fullBackupContent="@xml/backup_rules"
-51-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:38:9-54
-52        android:icon="@mipmap/ic_launcher"
-52-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:39:9-43
-53        android:label="@string/app_name"
-53-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:40:9-41
-54        android:roundIcon="@mipmap/ic_launcher_round"
+29    <!-- 使用 WRITE_SECURE_SETTINGS 通过系统设置无感重启无障碍服务（需 adb 授权或系统签名） -->
+30    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+30-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:26:5-28:47
+30-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:27:9-64
+31
+32    <queries>
+32-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:30:5-36:15
+33
+34        <!-- 允许查询所有应用（兼容QUERY_ALL_PACKAGES的替代方案） -->
+35        <intent>
+35-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:32:9-35:18
+36            <action android:name="android.intent.action.MAIN" />
+36-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:33:13-65
+36-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:33:21-62
+37
+38            <category android:name="android.intent.category.LAUNCHER" />
+38-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:34:13-73
+38-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:34:23-70
+39        </intent>
+40    </queries>
+41
+42    <permission
+42-->[androidx.core:core:1.10.1] C:\Users\zhuwe\.gradle\caches\8.13\transforms\24893cd5bb37673ed91d366210daa658\transformed\core-1.10.1\AndroidManifest.xml:22:5-24:47
+43        android:name="com.example.speakassist.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+43-->[androidx.core:core:1.10.1] C:\Users\zhuwe\.gradle\caches\8.13\transforms\24893cd5bb37673ed91d366210daa658\transformed\core-1.10.1\AndroidManifest.xml:23:9-81
+44        android:protectionLevel="signature" />
+44-->[androidx.core:core:1.10.1] C:\Users\zhuwe\.gradle\caches\8.13\transforms\24893cd5bb37673ed91d366210daa658\transformed\core-1.10.1\AndroidManifest.xml:24:9-44
+45
+46    <uses-permission android:name="com.example.speakassist.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+46-->[androidx.core:core:1.10.1] C:\Users\zhuwe\.gradle\caches\8.13\transforms\24893cd5bb37673ed91d366210daa658\transformed\core-1.10.1\AndroidManifest.xml:26:5-97
+46-->[androidx.core:core:1.10.1] C:\Users\zhuwe\.gradle\caches\8.13\transforms\24893cd5bb37673ed91d366210daa658\transformed\core-1.10.1\AndroidManifest.xml:26:22-94
+47
+48    <application
+48-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:38:5-81:19
+49        android:allowBackup="true"
+49-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:39:9-35
+50        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+50-->[androidx.core:core:1.10.1] C:\Users\zhuwe\.gradle\caches\8.13\transforms\24893cd5bb37673ed91d366210daa658\transformed\core-1.10.1\AndroidManifest.xml:28:18-86
+51        android:dataExtractionRules="@xml/data_extraction_rules"
+51-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:40:9-65
+52        android:debuggable="true"
+53        android:extractNativeLibs="false"
+54        android:fullBackupContent="@xml/backup_rules"
 54-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:41:9-54
-55        android:supportsRtl="true"
-55-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:42:9-35
-56        android:testOnly="true"
-57        android:theme="@style/Theme.SpeakAssist" >
-57-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:43:9-49
-58        <activity
-58-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:44:9-52:20
-59            android:name="com.example.speakassist.MainActivity"
-59-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:45:13-41
-60            android:exported="true" >
-60-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:46:13-36
-61            <intent-filter>
-61-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:47:13-51:29
-62                <action android:name="android.intent.action.MAIN" />
-62-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:30:13-65
-62-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:30:21-62
-63
-64                <category android:name="android.intent.category.LAUNCHER" />
-64-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:31:13-73
-64-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:31:23-70
-65            </intent-filter>
-66        </activity>
-67
-68        <service
-68-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:54:9-65:19
-69            android:name="com.example.service.MyAccessibilityService"
-69-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:55:13-70
-70            android:exported="false"
-70-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:56:13-37
-71            android:label="@string/accessibility_service_label"
-71-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:58:13-64
-72            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" >
-72-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:57:13-79
-73            <intent-filter>
-73-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:59:13-61:29
-74                <action android:name="android.accessibilityservice.AccessibilityService" />
-74-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:60:17-92
-74-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:60:25-89
-75            </intent-filter>
-76
-77            <meta-data
-77-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:62:13-64:72
-78                android:name="android.accessibilityservice"
-78-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:63:17-60
-79                android:resource="@xml/accessibility_service_config" />
-79-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:64:17-69
-80        </service>
-81        <service
-81-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:67:9-77:19
-82            android:name="com.example.service.MyInputMethodService"
-82-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:67:18-73
-83            android:enabled="true"
-83-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:70:13-35
-84            android:exported="false"
-84-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:69:13-37
-85            android:label="@string/input_label"
-85-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:68:13-48
-86            android:permission="android.permission.BIND_INPUT_METHOD" >
-86-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:71:13-70
-87            <intent-filter>
-87-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:72:13-74:29
-88                <action android:name="android.view.InputMethod" />
-88-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:73:17-67
-88-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:73:25-64
-89            </intent-filter>
-90
-91            <meta-data
-91-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:75:13-76:50
-92                android:name="android.view.im"
-92-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:75:24-54
-93                android:resource="@xml/method" />
-93-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:76:17-47
-94        </service>
-95
-96        <provider
-96-->[androidx.emoji2:emoji2:1.2.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\25b5edd2dda80cf44642b18712f67d84\transformed\emoji2-1.2.0\AndroidManifest.xml:24:9-32:20
-97            android:name="androidx.startup.InitializationProvider"
-97-->[androidx.emoji2:emoji2:1.2.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\25b5edd2dda80cf44642b18712f67d84\transformed\emoji2-1.2.0\AndroidManifest.xml:25:13-67
-98            android:authorities="com.example.speakassist.androidx-startup"
-98-->[androidx.emoji2:emoji2:1.2.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\25b5edd2dda80cf44642b18712f67d84\transformed\emoji2-1.2.0\AndroidManifest.xml:26:13-68
-99            android:exported="false" >
-99-->[androidx.emoji2:emoji2:1.2.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\25b5edd2dda80cf44642b18712f67d84\transformed\emoji2-1.2.0\AndroidManifest.xml:27:13-37
-100            <meta-data
-100-->[androidx.emoji2:emoji2:1.2.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\25b5edd2dda80cf44642b18712f67d84\transformed\emoji2-1.2.0\AndroidManifest.xml:29:13-31:52
-101                android:name="androidx.emoji2.text.EmojiCompatInitializer"
-101-->[androidx.emoji2:emoji2:1.2.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\25b5edd2dda80cf44642b18712f67d84\transformed\emoji2-1.2.0\AndroidManifest.xml:30:17-75
-102                android:value="androidx.startup" />
-102-->[androidx.emoji2:emoji2:1.2.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\25b5edd2dda80cf44642b18712f67d84\transformed\emoji2-1.2.0\AndroidManifest.xml:31:17-49
-103            <meta-data
-103-->[androidx.lifecycle:lifecycle-process:2.7.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\cce23a4b26f8e6b69b9bc2698b3cf20f\transformed\lifecycle-process-2.7.0\AndroidManifest.xml:29:13-31:52
-104                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
-104-->[androidx.lifecycle:lifecycle-process:2.7.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\cce23a4b26f8e6b69b9bc2698b3cf20f\transformed\lifecycle-process-2.7.0\AndroidManifest.xml:30:17-78
-105                android:value="androidx.startup" />
-105-->[androidx.lifecycle:lifecycle-process:2.7.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\cce23a4b26f8e6b69b9bc2698b3cf20f\transformed\lifecycle-process-2.7.0\AndroidManifest.xml:31:17-49
-106            <meta-data
-106-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:29:13-31:52
-107                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
-107-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:30:17-85
-108                android:value="androidx.startup" />
-108-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:31:17-49
-109        </provider>
-110
-111        <receiver
-111-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:34:9-52:20
-112            android:name="androidx.profileinstaller.ProfileInstallReceiver"
-112-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:35:13-76
-113            android:directBootAware="false"
-113-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:36:13-44
-114            android:enabled="true"
-114-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:37:13-35
-115            android:exported="true"
-115-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:38:13-36
-116            android:permission="android.permission.DUMP" >
-116-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:39:13-57
-117            <intent-filter>
-117-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:40:13-42:29
-118                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
-118-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:41:17-91
-118-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:41:25-88
-119            </intent-filter>
-120            <intent-filter>
-120-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:43:13-45:29
-121                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
-121-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:44:17-85
-121-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:44:25-82
-122            </intent-filter>
-123            <intent-filter>
-123-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:46:13-48:29
-124                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
-124-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:47:17-88
-124-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:47:25-85
-125            </intent-filter>
-126            <intent-filter>
-126-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:49:13-51:29
-127                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
-127-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:50:17-95
-127-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:50:25-92
-128            </intent-filter>
-129        </receiver>
-130    </application>
-131
-132</manifest>
+55        android:icon="@mipmap/ic_launcher"
+55-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:42:9-43
+56        android:label="@string/app_name"
+56-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:43:9-41
+57        android:roundIcon="@mipmap/ic_launcher_round"
+57-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:44:9-54
+58        android:supportsRtl="true"
+58-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:45:9-35
+59        android:theme="@style/Theme.SpeakAssist" >
+59-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:46:9-49
+60        <activity
+60-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:47:9-55:20
+61            android:name="com.example.speakassist.MainActivity"
+61-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:48:13-41
+62            android:exported="true" >
+62-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:49:13-36
+63            <intent-filter>
+63-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:50:13-54:29
+64                <action android:name="android.intent.action.MAIN" />
+64-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:33:13-65
+64-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:33:21-62
+65
+66                <category android:name="android.intent.category.LAUNCHER" />
+66-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:34:13-73
+66-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:34:23-70
+67            </intent-filter>
+68        </activity>
+69
+70        <service
+70-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:57:9-68:19
+71            android:name="com.example.service.MyAccessibilityService"
+71-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:58:13-70
+72            android:exported="false"
+72-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:59:13-37
+73            android:label="@string/accessibility_service_label"
+73-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:61:13-64
+74            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" >
+74-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:60:13-79
+75            <intent-filter>
+75-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:62:13-64:29
+76                <action android:name="android.accessibilityservice.AccessibilityService" />
+76-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:63:17-92
+76-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:63:25-89
+77            </intent-filter>
+78
+79            <meta-data
+79-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:65:13-67:72
+80                android:name="android.accessibilityservice"
+80-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:66:17-60
+81                android:resource="@xml/accessibility_service_config" />
+81-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:67:17-69
+82        </service>
+83        <service
+83-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:70:9-80:19
+84            android:name="com.example.service.MyInputMethodService"
+84-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:70:18-73
+85            android:enabled="true"
+85-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:73:13-35
+86            android:exported="false"
+86-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:72:13-37
+87            android:label="@string/input_label"
+87-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:71:13-48
+88            android:permission="android.permission.BIND_INPUT_METHOD" >
+88-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:74:13-70
+89            <intent-filter>
+89-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:75:13-77:29
+90                <action android:name="android.view.InputMethod" />
+90-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:76:17-67
+90-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:76:25-64
+91            </intent-filter>
+92
+93            <meta-data
+93-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:78:13-79:50
+94                android:name="android.view.im"
+94-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:78:24-54
+95                android:resource="@xml/method" />
+95-->E:\SpeakAssist\app\src\main\AndroidManifest.xml:79:17-47
+96        </service>
+97
+98        <provider
+98-->[androidx.emoji2:emoji2:1.2.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\25b5edd2dda80cf44642b18712f67d84\transformed\emoji2-1.2.0\AndroidManifest.xml:24:9-32:20
+99            android:name="androidx.startup.InitializationProvider"
+99-->[androidx.emoji2:emoji2:1.2.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\25b5edd2dda80cf44642b18712f67d84\transformed\emoji2-1.2.0\AndroidManifest.xml:25:13-67
+100            android:authorities="com.example.speakassist.androidx-startup"
+100-->[androidx.emoji2:emoji2:1.2.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\25b5edd2dda80cf44642b18712f67d84\transformed\emoji2-1.2.0\AndroidManifest.xml:26:13-68
+101            android:exported="false" >
+101-->[androidx.emoji2:emoji2:1.2.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\25b5edd2dda80cf44642b18712f67d84\transformed\emoji2-1.2.0\AndroidManifest.xml:27:13-37
+102            <meta-data
+102-->[androidx.emoji2:emoji2:1.2.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\25b5edd2dda80cf44642b18712f67d84\transformed\emoji2-1.2.0\AndroidManifest.xml:29:13-31:52
+103                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+103-->[androidx.emoji2:emoji2:1.2.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\25b5edd2dda80cf44642b18712f67d84\transformed\emoji2-1.2.0\AndroidManifest.xml:30:17-75
+104                android:value="androidx.startup" />
+104-->[androidx.emoji2:emoji2:1.2.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\25b5edd2dda80cf44642b18712f67d84\transformed\emoji2-1.2.0\AndroidManifest.xml:31:17-49
+105            <meta-data
+105-->[androidx.lifecycle:lifecycle-process:2.7.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\cce23a4b26f8e6b69b9bc2698b3cf20f\transformed\lifecycle-process-2.7.0\AndroidManifest.xml:29:13-31:52
+106                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+106-->[androidx.lifecycle:lifecycle-process:2.7.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\cce23a4b26f8e6b69b9bc2698b3cf20f\transformed\lifecycle-process-2.7.0\AndroidManifest.xml:30:17-78
+107                android:value="androidx.startup" />
+107-->[androidx.lifecycle:lifecycle-process:2.7.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\cce23a4b26f8e6b69b9bc2698b3cf20f\transformed\lifecycle-process-2.7.0\AndroidManifest.xml:31:17-49
+108            <meta-data
+108-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:29:13-31:52
+109                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+109-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:30:17-85
+110                android:value="androidx.startup" />
+110-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:31:17-49
+111        </provider>
+112
+113        <receiver
+113-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:34:9-52:20
+114            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+114-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:35:13-76
+115            android:directBootAware="false"
+115-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:36:13-44
+116            android:enabled="true"
+116-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:37:13-35
+117            android:exported="true"
+117-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:38:13-36
+118            android:permission="android.permission.DUMP" >
+118-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:39:13-57
+119            <intent-filter>
+119-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:40:13-42:29
+120                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+120-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:41:17-91
+120-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:41:25-88
+121            </intent-filter>
+122            <intent-filter>
+122-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:43:13-45:29
+123                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+123-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:44:17-85
+123-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:44:25-82
+124            </intent-filter>
+125            <intent-filter>
+125-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:46:13-48:29
+126                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+126-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:47:17-88
+126-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:47:25-85
+127            </intent-filter>
+128            <intent-filter>
+128-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:49:13-51:29
+129                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+129-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:50:17-95
+129-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\zhuwe\.gradle\caches\8.13\transforms\70dba4239dabd839ef5079d20f9698e1\transformed\profileinstaller-1.3.0\AndroidManifest.xml:50:25-92
+130            </intent-filter>
+131        </receiver>
+132    </application>
+133
+134</manifest>
