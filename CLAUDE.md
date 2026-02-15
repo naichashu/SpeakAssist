@@ -49,7 +49,7 @@ The app follows MVVM pattern with these key components:
 - **Screenshot**: Requires Android 11 (API 30)+ for MediaProjection API
 - **Token Management**: After each action, screenshots are removed from conversation history to save tokens
 - **Action Format**: AI returns JSON with `_metadata: "do"` (action) or `_metadata: "finish"` (complete)
-- **Supported Actions**: `launch` (launch app), `tap` (click at coordinates), `type` (input text)
+- **Supported Actions**: `launch` (launch app), `tap` (click at coordinates), `type` (input text), `swipe` (swipe screen), `back` (go back), `home` (return to home screen), `longpress` (long press), `doubletap` (double tap), `wait` (wait for delay ms)
 
 ## Permissions Required
 
@@ -65,3 +65,5 @@ The app follows MVVM pattern with these key components:
 - Coordinate system uses 0-1000 relative values (thousandths of screen width/height)
 - Conversation context accumulates during execution - removing images after each step to manage token usage
 - On finish or error, app automatically returns to foreground via `bringAppToForeground()`
+- Error recovery: up to 4 consecutive errors allowed before terminating the task loop
+- `wait` action has a maximum delay of 30 seconds to prevent indefinite blocking
