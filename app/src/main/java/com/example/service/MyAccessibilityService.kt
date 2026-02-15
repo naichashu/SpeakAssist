@@ -149,8 +149,8 @@ class MyAccessibilityService : AccessibilityService() {
         // 第一次点击：立即开始，持续100ms
         val firstClick = GestureDescription.StrokeDescription(path, 0, 100)
 
-        // 第二次点击：延迟150ms后开始，持续100ms（双击间隔）
-        val secondClick = GestureDescription.StrokeDescription(path, 150, 100)
+        // 第二次点击：延迟200ms后开始，持续100ms（双击间隔，部分应用需要更长间隔）
+        val secondClick = GestureDescription.StrokeDescription(path, 300, 100)
 
         // 构建完整手势，包含两个笔画
         val gesture = GestureDescription.Builder()
@@ -158,7 +158,7 @@ class MyAccessibilityService : AccessibilityService() {
             .addStroke(secondClick)
             .build()
 
-        Log.d(TAG, "执行双击：坐标($x, $y)")
+        Log.d(TAG, "执行双击：坐标($x, $y)，间隔300ms")
 
         val result = dispatchGesture(gesture, null, null)
         Log.d(TAG, "双击手势提交${if (result) "成功" else "失败"}")

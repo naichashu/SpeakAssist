@@ -1,10 +1,9 @@
-#Sat Feb 14 15:20:59 CST 2026
+#Sun Feb 15 12:04:26 CST 2026
 base.0=E\:\\SpeakAssist\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes.dex
 base.1=E\:\\SpeakAssist\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\0\\classes.dex
-base.10=E\:\\SpeakAssist\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes4.dex
 base.2=E\:\\SpeakAssist\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\10\\classes.dex
 base.3=E\:\\SpeakAssist\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\11\\classes.dex
-base.4=E\:\\SpeakAssist\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\14\\classes.dex
+base.4=E\:\\SpeakAssist\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes4.dex
 base.5=E\:\\SpeakAssist\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\6\\classes.dex
 base.6=E\:\\SpeakAssist\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\7\\classes.dex
 base.7=E\:\\SpeakAssist\\app\\build\\intermediates\\dex\\debug\\mergeProjectDexDebug\\8\\classes.dex
@@ -12,10 +11,9 @@ base.8=E\:\\SpeakAssist\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug
 base.9=E\:\\SpeakAssist\\app\\build\\intermediates\\dex\\debug\\mergeExtDexDebug\\classes3.dex
 path.0=classes.dex
 path.1=0/classes.dex
-path.10=classes4.dex
 path.2=10/classes.dex
 path.3=11/classes.dex
-path.4=14/classes.dex
+path.4=classes4.dex
 path.5=6/classes.dex
 path.6=7/classes.dex
 path.7=8/classes.dex
@@ -23,7 +21,6 @@ path.8=classes2.dex
 path.9=classes3.dex
 renamed.0=classes.dex
 renamed.1=classes2.dex
-renamed.10=classes11.dex
 renamed.2=classes3.dex
 renamed.3=classes4.dex
 renamed.4=classes5.dex

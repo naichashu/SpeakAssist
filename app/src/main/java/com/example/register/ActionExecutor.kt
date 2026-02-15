@@ -307,6 +307,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         screenWidth: Int,
         screenHeight: Int
     ): ActionResult {
+        Log.d(TAG, "执行动作类型: $action (lowercase: ${action.lowercase()})")
         val result = try {
             when (action.lowercase()) {
                 "launch" -> launchApp(actionObj)
@@ -321,9 +322,11 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                 else -> ActionResult(success = false, message = "不支持的操作: $action")
             }
         } catch (e: Exception) {
-            ActionResult(success = false, message = "执行动作失败: $action")
+            Log.e(TAG, "执行动作异常: $action", e)
+            ActionResult(success = false, message = "执行动作失败: $action - ${e.message}")
         }
 
+        Log.d(TAG, "动作执行完成: $action -> success=${result.success}, message=${result.message}")
         return result
     }
 
@@ -380,7 +383,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
      */
     private fun tap(actionObj: JsonObject, screenWidth: Int, screenHeight: Int): ActionResult {
         val element = actionObj.get("element")
-        Log.d(TAG, "点击事件位置: $element")
+        Log.d(TAG, "点击事件位置: $element, 屏幕尺寸: ${screenWidth}x${screenHeight}")
         if (element.isJsonArray) {
             val arr = element.asJsonArray
             if (arr.size() == 2) {
@@ -389,6 +392,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                     screenWidth,
                     screenHeight
                 )
+                Log.d(TAG, "相对坐标[${arr[0]}, ${arr[1]}] -> 绝对坐标($x, $y)")
                 service.clickByNode(x, y)
                 return ActionResult(
                     success = true,
@@ -400,7 +404,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                     )
                 )
             } else {
-                Log.e(TAG, "参数错误")
+                Log.e(TAG, "参数错误：数组长度为${arr.size()}")
                 return ActionResult(
                     success = false,
                     message = "参数错误：element字段需为「千分比相对坐标数组」，标准格式为 [x, y]，" +
@@ -408,6 +412,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                 )
             }
         } else {
+            Log.e(TAG, "参数错误：element不是数组，类型为${element?.javaClass?.simpleName}")
             return ActionResult(
                 success = false,
                 message = "参数错误：element字段类型非法，需为JSON数组格式 [x, y]" +
