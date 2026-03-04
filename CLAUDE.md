@@ -17,6 +17,9 @@ SpeakAssist is an Android voice-controlled AI assistant app (毕业设计). It u
 
 # Clean and build
 ./gradlew clean build
+
+# Run lint analysis
+./gradlew lint
 ```
 
 The debug APK is output to `app/build/intermediates/apk/debug/app-debug.apk`.
@@ -42,19 +45,32 @@ The app follows MVVM pattern with these key components:
 - **MyAccessibilityService** (`app/src/main/java/com/example/service/MyAccessibilityService.kt`) - Android accessibility service for screen capture, UI element interaction, app launching
 - **MyInputMethodService** (`app/src/main/java/com/example/service/MyInputMethodService.kt`) - Custom input method for text input
 
+### Speech Recognition
+- **BaiduSpeechManager** (`app/src/main/java/com/example/speech/BaiduSpeechManager.kt`) - Baidu Cloud speech-to-text integration using REST API
+
 ## Key Technical Details
 
 - **Target SDK**: 36, **Min SDK**: 24
-- **API**: Uses Zhipu AI's AutoGLM model via `https://open.bigmodel.cn/api/paas/v4`
+- **LLM API**: Zhipu AI's AutoGLM model via `https://open.bigmodel.cn/api/paas/v4`
+- **Speech API**: Baidu Cloud ASR (vop.baidu.com)
 - **Screenshot**: Requires Android 11 (API 30)+ for MediaProjection API
 - **Token Management**: After each action, screenshots are removed from conversation history to save tokens
 - **Action Format**: AI returns JSON with `_metadata: "do"` (action) or `_metadata: "finish"` (complete)
 - **Supported Actions**: `launch` (launch app), `tap` (click at coordinates), `type` (input text), `swipe` (swipe screen), `back` (go back), `home` (return to home screen), `longpress` (long press), `doubletap` (double tap), `wait` (wait for delay ms)
 
+## Key Dependencies
+
+- **Retrofit + OkHttp**: API communication
+- **Gson**: JSON parsing
+- **QMUI**: UI components
+- **Firebase App Distribution**: Beta testing distribution
+- **DataStore Preferences**: Local key-value storage
+
 ## Permissions Required
 
 - `INTERNET` - API calls
 - `QUERY_ALL_PACKAGES` - List installed apps
+- `RECORD_AUDIO` - Voice input for speech recognition
 - `SYSTEM_ALERT_WINDOW` - Floating window
 - `MANAGE_EXTERNAL_STORAGE` - Screenshot capture
 - `WRITE_SECURE_SETTINGS` - Auto-restart accessibility service (requires ADB or system signature)
