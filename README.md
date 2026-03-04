@@ -86,3 +86,7 @@
   "action": "wait",
   "delay": 2000
 }
+
+# 3.UI设计文档
+
+SpeakAssist_UI设计文档.md --- 项目文件
