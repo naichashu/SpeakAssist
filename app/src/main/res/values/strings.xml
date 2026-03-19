@@ -10,4 +10,26 @@
     <string name="voice_input_description">语音输入</string>
     <string name="voice_listening">正在聆听...</string>
     <string name="voice_permission_required">需要录音权限才能使用语音输入</string>
+
+    <!-- 首页布局相关 -->
+    <string name="send_message">发送消息</string>
+    <string name="settings">设置</string>
+    <string name="app_description">语音控制的AI助手</string>
+    <string name="app_icon">应用图标</string>
+    <string name="empty_state">空状态</string>
+    <string name="empty_state_hint">请输入您要执行的任务</string>
+
+    <!-- 权限相关 -->
+    <string name="permission_warning">权限警告</string>
+    <string name="permission_required_hint">请开启所需权限以正常使用功能</string>
+    <string name="permission_accessibility">无障碍服务</string>
+    <string name="permission_input_method">输入法</string>
+    <string name="permission_audio">录音</string>
+    <string name="permission_overlay">悬浮窗</string>
+
+    <!-- 侧栏菜单 -->
+    <string name="nav_history">历史记录</string>
+    <string name="nav_settings">设置</string>
+    <string name="nav_about">关于</string>
+    <string name="menu_description">菜单</string>
 </resources>

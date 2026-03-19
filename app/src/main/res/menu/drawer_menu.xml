@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 侧栏菜单项 -->
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 头部区域不需要菜单项，headerLayout会单独显示 -->
+
+    <!-- 历史记录 -->
+    <item
+        android:id="@+id/nav_history"
+        android:icon="@android:drawable/ic_menu_recent_history"
+        android:title="@string/nav_history" />
+
+    <!-- 分割线 -->
+    <item android:title="">
+        <menu>
+            <!-- 设置 -->
+            <item
+                android:id="@+id/nav_settings"
+                android:icon="@android:drawable/ic_menu_preferences"
+                android:title="@string/nav_settings" />
+
+            <!-- 关于 -->
+            <item
+                android:id="@+id/nav_about"
+                android:icon="@android:drawable/ic_menu_info_details"
+                android:title="@string/nav_about" />
+        </menu>
+    </item>
+
+</menu>
