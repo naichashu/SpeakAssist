@@ -64,6 +64,16 @@
             android:exported="false"
             android:parentActivityName=".MainActivity" />
 
+        <activity
+            android:name=".HistoryActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity" />
+
+        <activity
+            android:name=".HistoryDetailActivity"
+            android:exported="false"
+            android:parentActivityName=".HistoryActivity" />
+
         <service
             android:name="com.example.service.MyAccessibilityService"
             android:exported="false"

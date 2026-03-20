@@ -5,6 +5,9 @@ import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.AppDatabase
+import com.example.data.entity.TaskSession
+import com.example.data.entity.TaskStep
 import com.example.network.ModelClient
 import com.example.network.dto.ChatMessage
 import com.example.network.dto.ContentItem
@@ -19,9 +22,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private var modelClient: ModelClient? = null
     private var actionExecutor: ActionExecutor? = null
+    private val db = AppDatabase.getInstance(application)
 
     // 维护对话上下文（消息历史，仅在运行时有效，包含图片等大数据）
     private val messageContext = mutableListOf<ChatMessage>()
+
+    /**
+     * 任务执行结果
+     */
+    data class TaskResult(
+        val success: Boolean,
+        val message: String
+    )
 
     companion object {
         const val TAG = "ChatViewModel"
@@ -40,28 +52,29 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    suspend fun executeTaskLoop(userPrompt: String, modelName: String) {
+    suspend fun executeTaskLoop(userPrompt: String, modelName: String): TaskResult {
         AppRegister.initialize(getApplication()) // 初始化注册，以确保最新的映射配置被加载
-        val accessibilityService = MyAccessibilityService.getInstance() ?: return
+        val accessibilityService = MyAccessibilityService.getInstance()
+            ?: return TaskResult(false, "无障碍服务未启用")
         Log.d(TAG, "开始执行任务")
+
+        // 创建会话记录
+        val sessionId = db.taskSessionDao().insert(
+            TaskSession(userCommand = userPrompt, status = "running")
+        )
+
         var stepCount = 0
         val maxSteps = 50
         var errorSteps = 0
         val compressionLevel = 80
         while (stepCount < maxSteps) {
-            val client = modelClient ?: return
+            val client = modelClient ?: return finishTask(sessionId, false, "模型客户端未初始化")
             Log.d(TAG, "执行步骤 $stepCount")
 
             val currentApp = accessibilityService.currentApp.value
             val myProjectApp = getApplication<Application>().packageName
             val isMyProjectApp = currentApp == myProjectApp
             Log.d(TAG, "当前应用: $currentApp $myProjectApp")
-
-//            if (isMyProjectApp && stepCount > 0) {
-//                Toast.makeText(getApplication(), "请返回项目应用", Toast.LENGTH_LONG).show()
-//                delay(3000)
-//                continue
-//            }
 
             val screenShot = if (isMyProjectApp) {
                 null
@@ -78,7 +91,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     "无法获取屏幕截图，请确保无障碍服务已启用并授予截图权限。如果已启用，请尝试重启应用。"
                 }
                 Toast.makeText(getApplication(), errorMessage, Toast.LENGTH_LONG).show()
-                return
+                return finishTask(sessionId, false, errorMessage)
             }
 
             if (stepCount == 0) {
@@ -148,10 +161,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             Log.d(TAG, "执行动作结果: ${result.success}: ${result.message}")
 
+            // 保存步骤到数据库
+            val actionType = extractActionType(response.action)
+            val actionDesc = result.message ?: response.action.take(100)
+            db.taskStepDao().insert(
+                TaskStep(
+                    sessionId = sessionId,
+                    stepNumber = stepCount + 1,
+                    actionType = actionType,
+                    actionDescription = actionDesc,
+                    aiThinking = response.thinking.takeIf { it.isNotBlank() }
+                )
+            )
+
             if (isFinishAction) {
                 actionExecutor?.bringAppToForeground()
                 Log.d(TAG, "任务完成(finish动作)")
-                return
+                return finishTask(sessionId, true, result.message ?: "任务执行完成")
             }
 
             // 检查是否完成
@@ -164,7 +190,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 // 确保返回应用
                 actionExecutor?.bringAppToForeground()
                 Log.d(TAG, "任务完成: $completionMessage")
-                return
+                return finishTask(sessionId, true, completionMessage ?: "任务执行完成")
             }
 
             // 错误处理
@@ -198,7 +224,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     // 失败也尝试返回应用
                     actionExecutor?.bringAppToForeground()
                     Log.e(TAG, "重试超过上限，结束流程: ${result.message}")
-                    return
+                    return finishTask(sessionId, false, "连续错误超过上限: ${result.message}")
                 }
 
                 // 重试：继续下一轮循环
@@ -215,5 +241,34 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
         actionExecutor?.bringAppToForeground()
         Log.w("ChatViewModel", "达到最大步数限制")
+        return finishTask(sessionId, false, "达到最大步数限制($maxSteps)")
+    }
+
+    /**
+     * 结束任务，更新数据库状态并返回结果
+     */
+    private suspend fun finishTask(sessionId: Long, success: Boolean, message: String): TaskResult {
+        db.taskSessionDao().updateStatus(sessionId, if (success) "success" else "fail")
+        return TaskResult(success, message)
+    }
+
+    /**
+     * 从AI响应中提取操作类型
+     */
+    private fun extractActionType(action: String): String {
+        val lower = action.lowercase()
+        return when {
+            lower.contains("finish(") -> "finish"
+            lower.contains("\"launch\"") || lower.contains("action=\"launch\"") -> "launch"
+            lower.contains("\"tap\"") || lower.contains("action=\"tap\"") -> "tap"
+            lower.contains("\"type\"") || lower.contains("action=\"type\"") -> "type"
+            lower.contains("\"swipe\"") || lower.contains("action=\"swipe\"") -> "swipe"
+            lower.contains("\"back\"") || lower.contains("action=\"back\"") -> "back"
+            lower.contains("\"home\"") || lower.contains("action=\"home\"") -> "home"
+            lower.contains("\"wait\"") || lower.contains("action=\"wait\"") -> "wait"
+            lower.contains("\"long press\"") -> "longpress"
+            lower.contains("\"double tap\"") -> "doubletap"
+            else -> "unknown"
+        }
     }
 }

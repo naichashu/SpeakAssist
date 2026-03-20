@@ -155,8 +155,7 @@ class MainActivity : AppCompatActivity() {
         navigationView.setNavigationItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.nav_history -> {
-                    // TODO: 跳转到历史记录页面
-                    Toast.makeText(this, R.string.nav_history, Toast.LENGTH_SHORT).show()
+                    startActivity(Intent(this, HistoryActivity::class.java))
                 }
                 R.id.nav_settings -> {
                     // 跳转到设置页面
@@ -397,37 +396,50 @@ class MainActivity : AppCompatActivity() {
                 Log.d("MainActivity", "开始执行任务：$command")
 
                 // 添加系统消息（正在执行）
-                val currentList = chatAdapter.currentList.toMutableList()
-                currentList.add(ChatMessageAdapter.ChatMessageItem(
-                    content = "正在执行：$command",
-                    isUser = false
-                ))
-                chatAdapter.submitList(currentList)
+                addSystemMessage("正在执行：$command")
 
                 // 延迟一下让UI先更新
                 delay(500)
 
                 // 创建ViewModel并执行任务
                 chatViewModel = ChatViewModel(application)
-                chatViewModel.executeTaskLoop(command, "autoglm-phone")
+                val result = chatViewModel.executeTaskLoop(command, "autoglm-phone")
 
-                // 任务完成后的消息会在ChatViewModel中处理
+                // 任务完成后显示结果
+                if (result.success) {
+                    addSystemMessage("执行完成：${result.message}")
+                } else {
+                    addSystemMessage("执行失败：${result.message}")
+                }
             } catch (e: Exception) {
                 Log.e("MainActivity", "执行任务失败", e)
 
                 // 显示错误消息
-                val currentList = chatAdapter.currentList.toMutableList()
-                currentList.add(ChatMessageAdapter.ChatMessageItem(
-                    content = "执行失败：${e.message}",
-                    isUser = false
-                ))
-                chatAdapter.submitList(currentList)
+                addSystemMessage("执行失败：${e.message}")
 
                 if (e.message?.contains("无障碍服务") == true) {
                     openAccessibilitySettings()
                 }
             }
         }
+    }
+
+    /**
+     * 添加系统消息到聊天列表
+     */
+    private fun addSystemMessage(text: String) {
+        // 检查消息是否完整（以句号、感叹号、问号结尾）
+        val isComplete = text.endsWith("。") || text.endsWith("！") || text.endsWith("？") ||
+                text.endsWith(".") || text.endsWith("!") || text.endsWith("?")
+        val displayText = if (isComplete) text else "$text..."
+        val currentList = chatAdapter.currentList.toMutableList()
+        currentList.add(ChatMessageAdapter.ChatMessageItem(
+            content = displayText,
+            isUser = false
+        ))
+        chatAdapter.submitList(currentList)
+        rvChatMessages.scrollToPosition(chatAdapter.itemCount - 1)
+        updateEmptyState()
     }
 
     /**
