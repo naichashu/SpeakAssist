@@ -7,6 +7,8 @@ import android.graphics.Path
 import android.os.Build
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
+import com.example.floating.FloatingWindowManager
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,12 +34,19 @@ class MyAccessibilityService : AccessibilityService() {
     private val _currentApp = MutableStateFlow<String?>(null)
     val currentApp: StateFlow<String?> = _currentApp.asStateFlow()
 
+    var floatingWindowManager: FloatingWindowManager? = null
+        private set
+
     /**
      * 创建服务时调用
      */
     override fun onServiceConnected() {
         super.onServiceConnected()
         autoAccessibilityService = this
+
+        // 初始化悬浮窗管理器
+        floatingWindowManager = FloatingWindowManager(this)
+        floatingWindowManager?.init()
     }
 
     /**
@@ -56,7 +65,7 @@ class MyAccessibilityService : AccessibilityService() {
      * 监听中断
      */
     override fun onInterrupt() {
-        TODO("Not yet implemented")
+        Log.w(TAG, "无障碍服务被中断")
     }
 
     /**
@@ -64,6 +73,8 @@ class MyAccessibilityService : AccessibilityService() {
      */
     override fun onDestroy() {
         super.onDestroy()
+        floatingWindowManager?.destroy()
+        floatingWindowManager = null
         autoAccessibilityService = null
     }
 
@@ -200,10 +211,18 @@ class MyAccessibilityService : AccessibilityService() {
         return result
     }
 
-    suspend fun getScreenshotSuspend() : Bitmap? = suspendCancellableCoroutine { cont ->
-        getScreenshot {
-            cont.resume(it)
+    suspend fun getScreenshotSuspend(): Bitmap? {
+        // 截屏前隐藏执行卡片
+        floatingWindowManager?.hideForScreenshot()
+        delay(100)
+
+        val bitmap = suspendCancellableCoroutine { cont ->
+            getScreenshot { cont.resume(it) }
         }
+
+        // 截屏后恢复执行卡片
+        floatingWindowManager?.restoreAfterScreenshot()
+        return bitmap
     }
 
     /**

@@ -61,6 +61,7 @@ class MainActivity : AppCompatActivity() {
 
     // ==================== 数据和适配器 ====================
     private lateinit var chatAdapter: ChatMessageAdapter  // 聊天消息适配器
+    private val chatMessages = mutableListOf<ChatMessageAdapter.ChatMessageItem>() // 消息列表（单一数据源）
 
     // ==================== 业务逻辑 ====================
     private lateinit var speechManager: BaiduSpeechManager  // 百度语音管理器
@@ -110,6 +111,9 @@ class MainActivity : AppCompatActivity() {
 
         // 处理窗口Insets
         setupWindowInsets()
+
+        // 观察悬浮窗发起的任务执行状态
+        observeExecutionState()
     }
 
     /**
@@ -251,17 +255,13 @@ class MainActivity : AppCompatActivity() {
      * 在开发阶段用于验证UI显示效果
      */
     private fun addTestMessages() {
-        val testMessages = listOf(
-            ChatMessageAdapter.ChatMessageItem(
-                content = "你好！我是SpeakAssist，你的AI语音助手",
-                isUser = false
-            ),
-            ChatMessageAdapter.ChatMessageItem(
-                content = "请告诉我你想执行什么操作，比如\"打开微信\"",
-                isUser = false
-            )
-        )
-        chatAdapter.submitList(testMessages)
+        chatMessages.add(ChatMessageAdapter.ChatMessageItem(
+            content = "你好！我是SpeakAssist，你的AI语音助手", isUser = false
+        ))
+        chatMessages.add(ChatMessageAdapter.ChatMessageItem(
+            content = "请告诉我你想执行什么操作，比如\"打开微信\"", isUser = false
+        ))
+        chatAdapter.submitList(chatMessages.toList())
         updateEmptyState()
     }
 
@@ -366,16 +366,15 @@ class MainActivity : AppCompatActivity() {
             isUser = true
         )
 
-        // 更新列表（使用DiffUtil高效更新）
-        val currentList = chatAdapter.currentList.toMutableList()
-        currentList.add(userMessage)
-        chatAdapter.submitList(currentList)
+        // 更新列表
+        chatMessages.add(userMessage)
+        chatAdapter.submitList(chatMessages.toList())
 
         // 清空输入框
         etInput.setText("")
 
         // 滚动到底部
-        rvChatMessages.scrollToPosition(chatAdapter.itemCount - 1)
+        rvChatMessages.scrollToPosition(chatMessages.size - 1)
 
         // 更新空状态
         updateEmptyState()
@@ -425,20 +424,53 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
+     * 观察任务执行状态
+     * 当从悬浮窗发起任务时，在聊天列表中显示结果
+     */
+    private fun observeExecutionState() {
+        lifecycleScope.launch {
+            var lastTaskTitle = ""
+            ChatViewModel.executionState.collect { state ->
+                // 任务开始时，显示用户指令（作为用户消息）
+                if (state.isRunning && state.taskTitle.isNotBlank() && state.taskTitle != lastTaskTitle) {
+                    lastTaskTitle = state.taskTitle
+                    addUserMessage(state.taskTitle)
+                    addSystemMessage("正在执行：${state.taskTitle}")
+                }
+                // 任务完成时，显示结果
+                if (state.isCompleted && state.resultMessage.isNotBlank()) {
+                    val prefix = when {
+                        state.isCancelled -> "已取消"
+                        state.isSuccess -> "执行完成"
+                        else -> "执行失败"
+                    }
+                    addSystemMessage("$prefix：${state.resultMessage}")
+                    lastTaskTitle = ""
+                }
+            }
+        }
+    }
+
+    /**
+     * 添加用户消息到聊天列表
+     */
+    private fun addUserMessage(text: String) {
+        chatMessages.add(ChatMessageAdapter.ChatMessageItem(content = text, isUser = true))
+        chatAdapter.submitList(chatMessages.toList())
+        rvChatMessages.scrollToPosition(chatMessages.size - 1)
+        updateEmptyState()
+    }
+
+    /**
      * 添加系统消息到聊天列表
      */
     private fun addSystemMessage(text: String) {
-        // 检查消息是否完整（以句号、感叹号、问号结尾）
         val isComplete = text.endsWith("。") || text.endsWith("！") || text.endsWith("？") ||
                 text.endsWith(".") || text.endsWith("!") || text.endsWith("?")
         val displayText = if (isComplete) text else "$text..."
-        val currentList = chatAdapter.currentList.toMutableList()
-        currentList.add(ChatMessageAdapter.ChatMessageItem(
-            content = displayText,
-            isUser = false
-        ))
-        chatAdapter.submitList(currentList)
-        rvChatMessages.scrollToPosition(chatAdapter.itemCount - 1)
+        chatMessages.add(ChatMessageAdapter.ChatMessageItem(content = displayText, isUser = false))
+        chatAdapter.submitList(chatMessages.toList())
+        rvChatMessages.scrollToPosition(chatMessages.size - 1)
         updateEmptyState()
     }
 

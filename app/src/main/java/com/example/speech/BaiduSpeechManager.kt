@@ -217,22 +217,50 @@ class BaiduSpeechManager(private val context: Context) {
         val startTime = System.currentTimeMillis()
         val maxDuration = 60_000L
 
+        // 静音检测参数（VAD）
+        val silenceThreshold = 800       // 音量低于此值视为静音（RMS 值）
+        val silenceDuration = 1500L       // 静音持续 1.5 秒后自动停止
+        val minSpeechDuration = 300L      // 至少录到 0.3 秒有效语音才触发静音停止
+        var hasSpeech = false             // 是否检测到过有效语音
+        var silenceStartTime = 0L         // 静音开始时间
+
         while (isRecording && System.currentTimeMillis() - startTime < maxDuration) {
             val read = audioRecord?.read(buffer, 0, buffer.size) ?: -1
             if (read > 0) {
                 audioData.write(buffer, 0, read)
 
-                // 计算音量
+                // 计算音量（RMS）
                 var sum = 0L
                 for (i in 0 until read step 2) {
-                    val sample = (buffer[i].toInt() and 0xFF) or (buffer[i + 1].toInt() shl 8)
-                    sum += sample * sample
+                    if (i + 1 < read) {
+                        val sample = (buffer[i].toInt() and 0xFF) or (buffer[i + 1].toInt() shl 8)
+                        sum += sample.toLong() * sample.toLong()
+                    }
                 }
-                val rms = kotlin.math.sqrt(sum.toDouble() / read)
+                val rms = kotlin.math.sqrt(sum.toDouble() / (read / 2))
                 val volume = (rms / 32768 * 100).toInt().coerceIn(0, 100)
 
                 withContext(Dispatchers.Main) {
                     callback?.onVolumeChanged(volume)
+                }
+
+                // 静音检测逻辑
+                val now = System.currentTimeMillis()
+                if (rms > silenceThreshold) {
+                    // 检测到语音
+                    hasSpeech = true
+                    silenceStartTime = 0L
+                } else if (hasSpeech) {
+                    // 有过语音后进入静音
+                    if (silenceStartTime == 0L) {
+                        silenceStartTime = now
+                    }
+                    val elapsed = now - startTime
+                    if (elapsed > minSpeechDuration && now - silenceStartTime >= silenceDuration) {
+                        Log.d(TAG, "检测到静音停顿，自动停止录音")
+                        isRecording = false
+                        break
+                    }
                 }
             } else if (read < 0) {
                 break

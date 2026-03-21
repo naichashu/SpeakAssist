@@ -270,7 +270,6 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         return when (metadata) {
             "finish" -> {
                 val message = actionObj.get("message")?.asString ?: "任务完成"
-                bringAppToForeground()
                 ActionResult(success = true, message = message)
             }
 

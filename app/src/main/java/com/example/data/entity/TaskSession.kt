@@ -12,7 +12,7 @@ data class TaskSession(
     @ColumnInfo(name = "user_command")
     val userCommand: String,
 
-    // "running" | "success" | "fail"
+    // "running" | "success" | "fail" | "cancelled"
     val status: String = "running",
 
     @ColumnInfo(name = "created_at")

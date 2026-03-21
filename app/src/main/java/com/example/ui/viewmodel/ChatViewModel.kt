@@ -16,6 +16,9 @@ import com.example.register.ActionResult
 import com.example.register.AppRegister
 import com.example.service.MyAccessibilityService
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -37,6 +40,35 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     companion object {
         const val TAG = "ChatViewModel"
+
+        /**
+         * 任务执行状态，供悬浮窗等外部组件观察
+         */
+        data class TaskExecutionState(
+            val isRunning: Boolean = false,
+            val taskTitle: String = "",
+            val currentStep: Int = 0,
+            val currentAction: String = "",
+            val isCompleted: Boolean = false,
+            val isSuccess: Boolean = false,
+            val isCancelled: Boolean = false,
+            val resultMessage: String = ""
+        )
+
+        private val _executionState = MutableStateFlow(TaskExecutionState())
+        val executionState: StateFlow<TaskExecutionState> = _executionState.asStateFlow()
+
+        private val _cancelRequested = MutableStateFlow(false)
+        val cancelRequested: StateFlow<Boolean> = _cancelRequested.asStateFlow()
+
+        fun requestCancel() {
+            _cancelRequested.value = true
+        }
+
+        fun resetState() {
+            _executionState.value = TaskExecutionState()
+            _cancelRequested.value = false
+        }
     }
 
     init {
@@ -58,6 +90,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             ?: return TaskResult(false, "无障碍服务未启用")
         Log.d(TAG, "开始执行任务")
 
+        // 重置状态并通知开始执行
+        _cancelRequested.value = false
+        _executionState.value = TaskExecutionState(
+            isRunning = true,
+            taskTitle = userPrompt
+        )
+
         // 创建会话记录
         val sessionId = db.taskSessionDao().insert(
             TaskSession(userCommand = userPrompt, status = "running")
@@ -68,6 +107,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         var errorSteps = 0
         val compressionLevel = 80
         while (stepCount < maxSteps) {
+            // 检查取消请求
+            if (_cancelRequested.value) {
+                Log.d(TAG, "任务被用户取消")
+                return finishTask(sessionId, false, "用户手动取消任务", isCancelled = true)
+            }
+
             val client = modelClient ?: return finishTask(sessionId, false, "模型客户端未初始化")
             Log.d(TAG, "执行步骤 $stepCount")
 
@@ -161,6 +206,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             Log.d(TAG, "执行动作结果: ${result.success}: ${result.message}")
 
+            // 更新执行状态供悬浮窗观察
+            _executionState.value = _executionState.value.copy(
+                currentStep = stepCount + 1,
+                currentAction = result.message ?: response.action.take(100)
+            )
+
             // 保存步骤到数据库
             val actionType = extractActionType(response.action)
             val actionDesc = result.message ?: response.action.take(100)
@@ -175,7 +226,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             )
 
             if (isFinishAction) {
-                actionExecutor?.bringAppToForeground()
                 Log.d(TAG, "任务完成(finish动作)")
                 return finishTask(sessionId, true, result.message ?: "任务执行完成")
             }
@@ -187,8 +237,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             if (isFinished) {
                 // 任务完成
                 val completionMessage = result.message
-                // 确保返回应用
-                actionExecutor?.bringAppToForeground()
                 Log.d(TAG, "任务完成: $completionMessage")
                 return finishTask(sessionId, true, completionMessage ?: "任务执行完成")
             }
@@ -221,8 +269,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 errorSteps++
 
                 if (errorSteps > 4) {
-                    // 失败也尝试返回应用
-                    actionExecutor?.bringAppToForeground()
                     Log.e(TAG, "重试超过上限，结束流程: ${result.message}")
                     return finishTask(sessionId, false, "连续错误超过上限: ${result.message}")
                 }
@@ -239,7 +285,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             delay(1000)
             stepCount++
         }
-        actionExecutor?.bringAppToForeground()
         Log.w("ChatViewModel", "达到最大步数限制")
         return finishTask(sessionId, false, "达到最大步数限制($maxSteps)")
     }
@@ -247,8 +292,25 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * 结束任务，更新数据库状态并返回结果
      */
-    private suspend fun finishTask(sessionId: Long, success: Boolean, message: String): TaskResult {
-        db.taskSessionDao().updateStatus(sessionId, if (success) "success" else "fail")
+    private suspend fun finishTask(
+        sessionId: Long,
+        success: Boolean,
+        message: String,
+        isCancelled: Boolean = false
+    ): TaskResult {
+        val dbStatus = when {
+            isCancelled -> "cancelled"
+            success -> "success"
+            else -> "fail"
+        }
+        db.taskSessionDao().updateStatus(sessionId, dbStatus)
+        _executionState.value = _executionState.value.copy(
+            isRunning = false,
+            isCompleted = true,
+            isSuccess = success,
+            isCancelled = isCancelled,
+            resultMessage = message
+        )
         return TaskResult(success, message)
     }
 

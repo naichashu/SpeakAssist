@@ -68,10 +68,10 @@ class ChatMessageAdapter : ListAdapter<ChatMessageItem, ChatMessageAdapter.Messa
                 )
 
             if (item.isUser) {
-                // 用户消息：右对齐，蓝色背景，白色文字
+                // 用户消息：右对齐，绿色背景，深色文字
                 layoutParams.gravity = Gravity.END or Gravity.CENTER_VERTICAL
                 tvMessageContent.setBackgroundResource(R.drawable.bg_user_message)
-                tvMessageContent.setTextColor(ContextCompat.getColor(itemView.context, android.R.color.white))
+                tvMessageContent.setTextColor(ContextCompat.getColor(itemView.context, android.R.color.black))
             } else {
                 // 系统消息：左对齐，灰色背景，深色文字
                 layoutParams.gravity = Gravity.START or Gravity.CENTER_VERTICAL

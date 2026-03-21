@@ -11,8 +11,15 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.core.app.ActivityCompat
+import androidx.lifecycle.lifecycleScope
+import com.example.data.AppDatabase
+import com.example.data.SettingsPrefs
 import com.example.service.MyAccessibilityService
 import com.example.service.MyInputMethodService
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.switchmaterial.SwitchMaterial
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 /**
  * 设置页面Activity
@@ -50,6 +57,9 @@ class SettingsActivity : AppCompatActivity() {
 
         // 设置点击事件
         setupClickListeners()
+
+        // 设置悬浮窗开关
+        setupFloatingWindowSwitch()
     }
 
     override fun onResume() {
@@ -117,12 +127,48 @@ class SettingsActivity : AppCompatActivity() {
 
         // 清空历史
         findViewById<android.view.View>(R.id.itemClearHistory).setOnClickListener {
-            Toast.makeText(this, "功能开发中", Toast.LENGTH_SHORT).show()
+            MaterialAlertDialogBuilder(this)
+                .setTitle("清空历史记录")
+                .setMessage("确定要清空所有历史记录吗？此操作不可撤销。")
+                .setPositiveButton("确定") { _, _ ->
+                    lifecycleScope.launch {
+                        AppDatabase.getInstance(applicationContext).taskSessionDao().deleteAll()
+                        Toast.makeText(this@SettingsActivity, "历史记录已清空", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                .setNegativeButton("取消", null)
+                .show()
         }
 
         // 关于
         findViewById<android.view.View>(R.id.itemAbout).setOnClickListener {
             startActivity(Intent(this, AboutActivity::class.java))
+        }
+    }
+
+    /**
+     * 设置悬浮窗开关
+     */
+    private fun setupFloatingWindowSwitch() {
+        val switchFloatingWindow = findViewById<SwitchMaterial>(R.id.switchFloatingWindow)
+
+        // 读取当前值
+        lifecycleScope.launch {
+            val enabled = SettingsPrefs.floatingWindowEnabled(this@SettingsActivity).first()
+            switchFloatingWindow.isChecked = enabled
+        }
+
+        // 切换时写入 DataStore 并立即通知悬浮窗管理器
+        switchFloatingWindow.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked && !MyAccessibilityService.isServiceEnabled()) {
+                Toast.makeText(this, "请先开启无障碍服务，悬浮窗才能正常显示", Toast.LENGTH_LONG).show()
+            }
+            lifecycleScope.launch {
+                SettingsPrefs.setFloatingWindowEnabled(this@SettingsActivity, isChecked)
+                MyAccessibilityService.getInstance()?.floatingWindowManager?.let { manager ->
+                    if (isChecked) manager.showCircle() else manager.hideCircle()
+                }
+            }
         }
     }
 

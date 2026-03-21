@@ -50,6 +50,10 @@ class TaskSessionAdapter(
                     tvStatus.text = "失败"
                     tvStatus.setBackgroundResource(R.drawable.bg_status_fail)
                 }
+                "cancelled" -> {
+                    tvStatus.text = "已取消"
+                    tvStatus.setBackgroundResource(R.drawable.bg_status_running)
+                }
                 else -> {
                     tvStatus.text = "进行中"
                     tvStatus.setBackgroundResource(R.drawable.bg_status_running)
