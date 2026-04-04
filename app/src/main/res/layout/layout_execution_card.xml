@@ -46,17 +46,5 @@
             android:textSize="14sp"
             android:singleLine="true"
             android:ellipsize="end" />
-
-        <!-- 取消按钮 -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnCancel"
-            style="@style/Widget.MaterialComponents.Button.TextButton"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginTop="8dp"
-            android:text="取消任务"
-            android:textColor="@color/error"
-            android:textSize="14sp" />
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

@@ -13,8 +13,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * 悬浮窗总管理器
@@ -94,42 +94,30 @@ class FloatingWindowManager(private val service: AccessibilityService) {
         }
     }
 
-    private fun hideExecutionCard() {
-        handler.post {
-            executionCardView?.destroy()
-            executionCardView = null
-        }
-    }
-
     // ==================== 截屏隐藏/恢复 ====================
 
-    fun hideForScreenshot() {
-        executionCardView?.let { card ->
-            if (card.isShowing()) {
-                handler.post {
-                    card.rootView?.let { view ->
-                        try {
-                            card.currentLayoutParams // 保存参数
-                            windowManager.removeView(view)
-                        } catch (e: Exception) {
-                            Log.w(TAG, "截屏前隐藏卡片失败", e)
-                        }
-                    }
+    suspend fun hideForScreenshot() {
+        withContext(Dispatchers.Main.immediate) {
+            executionCardView?.rootView?.let { view ->
+                try {
+                    windowManager.removeView(view)
+                } catch (e: Exception) {
+                    Log.w(TAG, "截屏前隐藏卡片失败", e)
                 }
             }
         }
     }
 
-    fun restoreAfterScreenshot() {
-        executionCardView?.let { card ->
-            handler.post {
-                card.rootView?.let { view ->
-                    card.currentLayoutParams?.let { params ->
-                        try {
-                            windowManager.addView(view, params)
-                        } catch (e: Exception) {
-                            Log.w(TAG, "截屏后恢复卡片失败", e)
-                        }
+    suspend fun restoreAfterScreenshot() {
+        withContext(Dispatchers.Main.immediate) {
+            val card = executionCardView ?: return@withContext
+            if (!card.isShowing()) return@withContext
+            card.rootView?.let { view ->
+                card.currentLayoutParams?.let { params ->
+                    try {
+                        windowManager.addView(view, params)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "截屏后恢复卡片失败", e)
                     }
                 }
             }

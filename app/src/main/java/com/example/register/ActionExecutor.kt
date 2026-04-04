@@ -19,7 +19,8 @@ data class ActionDetail(
     val y1: Float? = null,
     val x2: Float? = null,
     val y2: Float? = null,
-    val text: String? = null
+    val text: String? = null,
+    val waitMs: Long? = null
 )
 
 /**
@@ -38,6 +39,11 @@ class ActionExecutor(private val service: MyAccessibilityService) {
 
     companion object {
         const val TAG = "ActionExecutor"
+        private const val LAUNCH_SETTLE_DELAY_MS = 2500L
+        private const val TAP_SETTLE_DELAY_MS = 1500L
+        private const val INPUT_SETTLE_DELAY_MS = 1200L
+        private const val SWIPE_SETTLE_DELAY_MS = 1200L
+        private const val NAVIGATION_SETTLE_DELAY_MS = 1200L
     }
 
     /**
@@ -366,7 +372,8 @@ class ActionExecutor(private val service: MyAccessibilityService) {
             // 6. 启动成功，返回成功结果
             return ActionResult(
                 success = true,
-                message = "成功启动 app: $appName"
+                message = "成功启动 app: $appName",
+                actionDetail = ActionDetail(type = "launch", text = appName, waitMs = LAUNCH_SETTLE_DELAY_MS)
             )
         } catch (e: Exception) {
             // 7. 捕获所有可能的运行时异常，优雅返回错误结果
@@ -392,16 +399,29 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                     screenHeight
                 )
                 Log.d(TAG, "相对坐标[${arr[0]}, ${arr[1]}] -> 绝对坐标($x, $y)")
-                service.clickByNode(x, y)
-                return ActionResult(
-                    success = true,
-                    message = "点击成功",
-                    actionDetail = ActionDetail(
-                        type = "tap",
-                        x1 = x,
-                        y1 = y
+                val success = service.clickByNode(x, y)
+                return if (success) {
+                    ActionResult(
+                        success = true,
+                        message = "点击成功：坐标($x, $y)",
+                        actionDetail = ActionDetail(
+                            type = "tap",
+                            x1 = x,
+                            y1 = y,
+                            waitMs = TAP_SETTLE_DELAY_MS
+                        )
                     )
-                )
+                } else {
+                    ActionResult(
+                        success = false,
+                        message = "点击手势提交失败：坐标($x, $y)",
+                        actionDetail = ActionDetail(
+                            type = "tap",
+                            x1 = x,
+                            y1 = y
+                        )
+                    )
+                }
             } else {
                 Log.e(TAG, "参数错误：数组长度为${arr.size()}")
                 return ActionResult(
@@ -458,7 +478,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
             ActionResult(
                 success = true,
                 message = "文本输入成功：$text",
-                actionDetail = ActionDetail("type", text = text) // 可选：补充输入详情
+                actionDetail = ActionDetail(type = "type", text = text, waitMs = INPUT_SETTLE_DELAY_MS)
             )
         } else {
             ActionResult(
@@ -580,7 +600,14 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                 ActionResult(
                     success = true,
                     message = "滑动成功：从($absStartX, $absStartY)到($absEndX, $absEndY)",
-                    actionDetail = ActionDetail(type = "swipe", x1 = absStartX, y1 = absStartY, x2 = absEndX, y2 = absEndY)
+                    actionDetail = ActionDetail(
+                        type = "swipe",
+                        x1 = absStartX,
+                        y1 = absStartY,
+                        x2 = absEndX,
+                        y2 = absEndY,
+                        waitMs = SWIPE_SETTLE_DELAY_MS
+                    )
                 )
             } else {
                 ActionResult(
@@ -608,7 +635,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                 ActionResult(
                     success = true,
                     message = "返回上一页成功",
-                    actionDetail = ActionDetail(type = "back")
+                    actionDetail = ActionDetail(type = "back", waitMs = NAVIGATION_SETTLE_DELAY_MS)
                 )
             } else {
                 Log.e(TAG, "执行返回失败：无障碍服务无法执行返回操作")
@@ -637,7 +664,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                 ActionResult(
                     success = true,
                     message = "返回桌面成功",
-                    actionDetail = ActionDetail(type = "home")
+                    actionDetail = ActionDetail(type = "home", waitMs = NAVIGATION_SETTLE_DELAY_MS)
                 )
             } else {
                 Log.e(TAG, "执行返回桌面失败：无障碍服务无法执行此操作")
@@ -707,7 +734,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                 ActionResult(
                     success = true,
                     message = "长按成功：坐标($x, $y)",
-                    actionDetail = ActionDetail(type = "longpress", x1 = x, y1 = y)
+                    actionDetail = ActionDetail(type = "longpress", x1 = x, y1 = y, waitMs = TAP_SETTLE_DELAY_MS)
                 )
             } else {
                 ActionResult(
@@ -776,7 +803,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                 ActionResult(
                     success = true,
                     message = "双击成功：坐标($x, $y)",
-                    actionDetail = ActionDetail(type = "doubletap", x1 = x, y1 = y)
+                    actionDetail = ActionDetail(type = "doubletap", x1 = x, y1 = y, waitMs = TAP_SETTLE_DELAY_MS)
                 )
             } else {
                 ActionResult(
@@ -823,7 +850,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         return ActionResult(
             success = true,
             message = message,
-            actionDetail = ActionDetail(type = "wait")
+            actionDetail = ActionDetail(type = "wait", waitMs = actualDelay)
         )
     }
 

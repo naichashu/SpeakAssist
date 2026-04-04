@@ -9,21 +9,16 @@ import android.util.Log
 import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.TextView
 import com.example.speakassist.R
-import com.example.ui.viewmodel.ChatViewModel
-import com.google.android.material.button.MaterialButton
 
 /**
  * 执行卡片悬浮窗
  *
  * 功能：
  * - 显示任务执行状态（标题、步骤、当前动作）
- * - 可拖拽移动
- * - 取消按钮
  * - 任务完成后 5 秒自动消失
  */
 class ExecutionCardView(
@@ -44,7 +39,6 @@ class ExecutionCardView(
     private var tvTaskTitle: TextView? = null
     private var tvStepProgress: TextView? = null
     private var tvCurrentAction: TextView? = null
-    private var btnCancel: MaterialButton? = null
 
     private val handler = Handler(Looper.getMainLooper())
     private var isShowing = false
@@ -59,7 +53,6 @@ class ExecutionCardView(
         tvTaskTitle = rootView?.findViewById(R.id.tvTaskTitle)
         tvStepProgress = rootView?.findViewById(R.id.tvStepProgress)
         tvCurrentAction = rootView?.findViewById(R.id.tvCurrentAction)
-        btnCancel = rootView?.findViewById(R.id.btnCancel)
 
         tvTaskTitle?.text = "正在执行：$taskTitle"
         tvStepProgress?.text = "准备中..."
@@ -79,15 +72,12 @@ class ExecutionCardView(
             cardWidth,
             WindowManager.LayoutParams.WRAP_CONTENT,
             overlayType,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             y = (48 * context.resources.displayMetrics.density).toInt() // 状态栏下方
         }
-
-        setupDragging()
-        setupCancelButton()
 
         windowManager.addView(rootView, currentLayoutParams)
         isShowing = true
@@ -120,52 +110,11 @@ class ExecutionCardView(
         handler.post {
             tvTaskTitle?.text = title
             tvCurrentAction?.text = message
-            btnCancel?.visibility = View.GONE
 
             // 5秒后自动消失
             handler.postDelayed({
                 destroy()
             }, AUTO_HIDE_DELAY)
-        }
-    }
-
-    private fun setupDragging() {
-        var initialX = 0
-        var initialY = 0
-        var initialTouchX = 0f
-        var initialTouchY = 0f
-
-        rootView?.setOnTouchListener { _, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    initialX = currentLayoutParams?.x ?: 0
-                    initialY = currentLayoutParams?.y ?: 0
-                    initialTouchX = event.rawX
-                    initialTouchY = event.rawY
-                    true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    currentLayoutParams?.let { params ->
-                        params.x = initialX + (event.rawX - initialTouchX).toInt()
-                        params.y = initialY + (event.rawY - initialTouchY).toInt()
-                        rootView?.let { view ->
-                            try {
-                                windowManager.updateViewLayout(view, params)
-                            } catch (e: Exception) {
-                                Log.w(TAG, "更新卡片位置失败", e)
-                            }
-                        }
-                    }
-                    true
-                }
-                else -> false
-            }
-        }
-    }
-
-    private fun setupCancelButton() {
-        btnCancel?.setOnClickListener {
-            ChatViewModel.requestCancel()
         }
     }
 }

@@ -281,8 +281,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 errorSteps = 0
             }
 
-            // 等待界面稳定
-            delay(1000)
+            val settleDelayMs = result.actionDetail?.waitMs ?: 1000L
+            Log.d(TAG, "等待界面稳定: ${settleDelayMs}ms, action=${result.actionDetail?.type}")
+            delay(settleDelayMs)
             stepCount++
         }
         Log.w("ChatViewModel", "达到最大步数限制")
