@@ -3,7 +3,6 @@ package com.example.data.dao
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
-import androidx.room.Update
 import com.example.data.entity.TaskSession
 
 @Dao
@@ -11,9 +10,6 @@ interface TaskSessionDao {
 
     @Insert
     suspend fun insert(session: TaskSession): Long
-
-    @Update
-    suspend fun update(session: TaskSession)
 
     @Query("UPDATE task_sessions SET status = :status WHERE id = :sessionId")
     suspend fun updateStatus(sessionId: Long, status: String)

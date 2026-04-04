@@ -16,6 +16,9 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.io.ByteArrayOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 data class ModelResponse(
@@ -215,7 +218,8 @@ class ModelClient(
      */
     private fun buildSystemPrompt(): String {
         val template = context.getString(R.string.system_prompt_template)
-        return String.format(template, java.time.LocalDate.now())
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        return String.format(template, today)
     }
 
     /**

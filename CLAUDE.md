@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-SpeakAssist is an Android voice-controlled AI assistant app (毕业设计). It uses AutoGLM large language model to automate tasks on Android devices through natural language commands. The app captures screen content, sends it to the AI model, and executes actions (tap, launch apps, type text) based on AI responses.
+SpeakAssist is an Android app that turns natural-language commands into on-device actions. The app collects the current screen state, sends the task plus screenshot context to Zhipu AutoGLM, parses the model response into a single action, executes it through Accessibility/input-method services, and persists the execution history locally.
 
-**UI/UX Design Doc**: See `SpeakAssist_UI设计文档.md` for the complete UI design specification (v2.0, finalized).
+The UI design source of truth is `SpeakAssist_UI设计文档.md`.
 
-## Build Commands
+## Common Commands
 
 ```bash
 # Build debug APK
@@ -17,118 +17,96 @@ SpeakAssist is an Android voice-controlled AI assistant app (毕业设计). It u
 # Build release APK
 ./gradlew assembleRelease
 
-# Clean and build
-./gradlew clean build
+# Run the full verification task set configured by Gradle
+./gradlew build
 
-# Run lint analysis
+# Run Android lint
 ./gradlew lint
+
+# Run local JVM unit tests
+./gradlew test
+
+# Run a single JVM test class
+./gradlew testDebugUnitTest --tests "com.example.YourTestClass"
+
+# Run a single JVM test method
+./gradlew testDebugUnitTest --tests "com.example.YourTestClass.yourTestMethod"
+
+# Run instrumentation tests on a connected device/emulator
+./gradlew connectedDebugAndroidTest
+
+# Install debug build to a connected device
+./gradlew installDebug
 ```
 
-The debug APK is output to `app/build/intermediates/apk/debug/app-debug.apk`.
+There are currently no committed test source sets under `app/src/test` or `app/src/androidTest`, so the single-test commands are the Gradle patterns to use when tests are added.
 
 ## Architecture
 
-The app follows MVVM pattern with these key components:
+### End-to-end task loop
 
-### Core Flow
-1. **MainActivity** (`app/src/main/java/com/example/speakassist/MainActivity.kt`) - Entry point, hosts the main chat UI (top nav + permission banner + chat list + bottom input bar)
-2. **ChatViewModel** (`app/src/main/java/com/example/ui/viewmodel/ChatViewModel.kt`) - Main business logic, manages the AI conversation loop (max 50 steps), handles screenshot capture, error recovery, and returns app to foreground on completion
+The core automation loop lives in `app/src/main/java/com/example/ui/viewmodel/ChatViewModel.kt`.
 
-### Network Layer
-- **ModelClient** (`app/src/main/java/com/example/network/ModelClient.kt`) - Handles API communication with AutoGLM, creates messages with screenshots, manages conversation context
-- **AutoGLMApi** (`app/src/main/java/com/example/network/AutoGLMApi.kt`) - Retrofit API interface
-- DTOs in `app/src/main/java/com/example/network/dto/` - Request/response data classes
+1. `MainActivity` collects text or voice input and starts a task.
+2. `ChatViewModel` creates a `TaskSession` row in Room, initializes runtime-only message context, and publishes shared execution state through companion-object `StateFlow`s.
+3. `MyAccessibilityService` provides the current foreground package and screenshots; screenshot capture temporarily hides the execution overlay.
+4. `ModelClient` builds the system prompt plus multimodal user message, sends it to AutoGLM, and normalizes model output into `thinking` + `action`.
+5. `ActionExecutor` converts the returned JSON/function-call-like payload into concrete gestures, app launches, text input, navigation actions, or waits.
+6. After each step, `ChatViewModel` stores a `TaskStep` row, strips images from prior context to reduce token usage, waits for the UI to settle, and either continues, retries on malformed output, or finishes the session.
 
-### Action Execution
-- **ActionExecutor** (`app/src/main/java/com/example/register/ActionExecutor.kt`) - Parses AI JSON responses and executes device actions (tap, launch, type)
-- **AppRegister** (`app/src/main/java/com/example/register/AppRegister.kt`) - Registry of installed apps (app name → package name mapping)
+Key control limits in the loop: max 50 steps, up to 4 consecutive action-format errors, and a max `wait` duration of 30 seconds.
 
-### Services
-- **MyAccessibilityService** (`app/src/main/java/com/example/service/MyAccessibilityService.kt`) - Android accessibility service for screen capture, UI element interaction, app launching
-- **MyInputMethodService** (`app/src/main/java/com/example/service/MyInputMethodService.kt`) - Custom input method for text input
+### Main subsystems
 
-### Speech Recognition
-- **BaiduSpeechManager** (`app/src/main/java/com/example/speech/BaiduSpeechManager.kt`) - Baidu Cloud speech-to-text integration using REST API
+- `app/src/main/java/com/example/speakassist/MainActivity.kt`: main chat-style UI, permission banner, drawer navigation, voice/text input, and display of final task results.
+- `app/src/main/java/com/example/network/ModelClient.kt`: Retrofit/OkHttp client for Zhipu AutoGLM, prompt assembly, screenshot JPEG/base64 conversion, and response parsing.
+- `app/src/main/java/com/example/register/ActionExecutor.kt`: action parsing and execution bridge. Coordinates are model-facing thousandths of screen width/height and are converted to absolute pixels here.
+- `app/src/main/java/com/example/service/MyAccessibilityService.kt`: global automation surface for gestures, global back/home actions, current-app tracking, screenshot capture, and floating-window lifecycle.
+- `app/src/main/java/com/example/service/MyInputMethodService.kt`: custom IME used for model-driven text input.
+- `app/src/main/java/com/example/speech/BaiduSpeechManager.kt`: voice recognition integration used by both the main UI and floating window flow.
 
-### Data Layer (to be implemented)
-- **Room Database** - Stores chat history with two tables:
-  - `task_sessions`: id, user_command, status(success/fail/running), created_at
-  - `task_steps`: id, session_id(FK), step_number, action_type, action_description, ai_thinking, created_at
-- **DataStore Preferences** - Stores app settings (e.g. floating window on/off). Dependency declared but not yet used in code.
+### Persistence and UI state
 
-## UI Design Summary
+- `app/src/main/java/com/example/data/AppDatabase.kt` defines a Room database with `TaskSession` and `TaskStep` tables. History screens read directly from this DB.
+- `app/src/main/java/com/example/data/SettingsPrefs.kt` uses DataStore Preferences for the floating-window enabled flag.
+- `HistoryActivity` shows recorded task sessions; `HistoryDetailActivity` shows per-step execution logs and AI thinking.
 
-Refer to `SpeakAssist_UI设计文档.md` for full details. Key points:
+### Floating window flow
 
-### Pages
-1. **首页 (Main Page)**: Top nav (hamburger + title + settings) → permission banner → chat message list → bottom input bar (text input + voice button + send button)
-2. **侧栏 (Drawer)**: Left slide-out drawer showing chat history list (from Room DB), click to open detail page
-3. **历史详情页 (History Detail)**: New page showing step-by-step execution log with action descriptions and AI thinking
-4. **设置页 (Settings)**: Permission management (accessibility, input method, audio, overlay) + floating window toggle + about/feedback/clear history
+The floating-window implementation is service-owned, not activity-owned.
 
-### Floating Windows (System Overlay via WindowManager)
-1. **圆形悬浮窗 (Circle Floating Button)**:
-   - Idle state: circle (~60dp) on right edge, half-hidden
-   - Tap → expand to rounded rectangle (logo left + text right), start voice recognition
-   - Recognition success → show text → **auto-send** (no confirmation) → collapse back
-   - Recognition fail → show "识别失败" → auto-collapse after 3s
-   - Tap logo during recognition → cancel, collapse immediately
-   - Hidden during task execution
-2. **执行卡片 (Execution Card)**:
-   - System overlay, semi-transparent, top-center, draggable
-   - Shows: task title, current step number (no total), current action, cancel button
-   - Disappears 5s after task completion
-   - Hidden during screenshot capture, restored after
+- `FloatingWindowManager` is created from `MyAccessibilityService.onServiceConnected()`.
+- It watches `SettingsPrefs` to decide whether the circle button should exist.
+- It watches `ChatViewModel.executionState` to hide the circle during execution, show/update the execution card, and restore the circle after completion.
+- Voice commands started from the floating window run the same `ChatViewModel.executeTaskLoop()` path as commands started from `MainActivity`.
 
-### Chat Messages
-- User messages: right-aligned, blue background (#2196F3)
-- System messages: left-aligned, gray background (#F0F0F0)
-- Only final results in chat; intermediate steps in history detail page
-- Empty state: show guide text
+### Prompt and action contract
 
-### Style
-- Light theme only (no dark mode)
-- Primary color: #2196F3 (Material Blue)
-- Success: #4CAF50, Error: #F44336
-- Font sizes: title 18sp, body 14sp, caption 12sp
-- Corner radius: 12dp (messages/cards), 8dp (buttons)
+The AutoGLM system prompt is stored in `app/src/main/res/values/strings.xml` as `system_prompt_template`.
 
-## Key Technical Details
+Important implementation detail: the prompt still mentions a broader action vocabulary, but `ActionExecutor` only handles these actions today:
 
-- **Target SDK**: 36, **Min SDK**: 24
-- **LLM API**: Zhipu AI's AutoGLM model via `https://open.bigmodel.cn/api/paas/v4`
-- **Speech API**: Baidu Cloud ASR (vop.baidu.com)
-- **Screenshot**: Requires Android 11 (API 30)+ for MediaProjection API
-- **Token Management**: After each action, screenshots are removed from conversation history to save tokens
-- **Action Format**: AI returns JSON with `_metadata: "do"` (action) or `_metadata: "finish"` (complete)
-- **Supported Actions**: `launch` (launch app), `tap` (click at coordinates), `type` (input text), `swipe` (swipe screen), `back` (go back), `home` (return to home screen), `longpress` (long press), `doubletap` (double tap), `wait` (wait for delay ms)
+- `launch`
+- `tap`
+- `type`
+- `swipe`
+- `back`
+- `home`
+- `longpress`
+- `doubletap`
+- `wait`
+- `finish`
 
-## Key Dependencies
+If you change the prompt contract, keep `strings.xml`, `ModelClient.parseResponse()`, and `ActionExecutor` aligned.
 
-- **Retrofit + OkHttp**: API communication
-- **Gson**: JSON parsing
-- **QMUI**: UI components
-- **Firebase App Distribution**: Beta testing distribution
-- **DataStore Preferences**: Local key-value storage (declared, not yet used)
-- **Room** (to be added): Local database for chat history
+## Platform and runtime notes
 
-## Permissions Required
+- Target SDK 36, min SDK 24, Kotlin/JVM target 11.
+- Screenshot capture uses `AccessibilityService.takeScreenshot`, so full screenshot support requires Android 11+.
+- The app depends on Accessibility service, custom input method, record-audio permission, and overlay permission for the full experience.
+- `AndroidManifest.xml` includes broad automation-related permissions and registers both the accessibility service and IME.
 
-- `INTERNET` - API calls
-- `QUERY_ALL_PACKAGES` - List installed apps
-- `RECORD_AUDIO` - Voice input for speech recognition
-- `SYSTEM_ALERT_WINDOW` - Floating window (circle button + execution card)
-- `MANAGE_EXTERNAL_STORAGE` - Screenshot capture
-- `WRITE_SECURE_SETTINGS` - Auto-restart accessibility service (requires ADB or system signature)
+## Notes from other repository docs
 
-## Common Development Notes
-
-- The app requires both Accessibility Service and Input Method to be enabled
-- Settings page should show permission status for: accessibility, input method, audio recording, overlay window
-- Coordinate system uses 0-1000 relative values (thousandths of screen width/height)
-- Conversation context accumulates during execution - removing images after each step to manage token usage
-- On finish or error, app automatically returns to foreground via `bringAppToForeground()`
-- Error recovery: up to 4 consecutive errors allowed before terminating the task loop
-- `wait` action has a maximum delay of 30 seconds to prevent indefinite blocking
-- Screenshot capture: hide execution card overlay before capture, restore after
-- Network errors: show error on execution card + failure message in chat list
+- `README.md` still contains legacy Python/Open-AutoGLM notes and example API usage; it is not the authoritative source for the current Android app architecture.
+- No Cursor rules, `.cursorrules`, or Copilot instruction files are present in the repository at the time of writing.

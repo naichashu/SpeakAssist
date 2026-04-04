@@ -17,6 +17,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.example.speakassist.R
+import com.example.speech.BaiduSpeechConfig
 import com.example.speech.BaiduSpeechManager
 import kotlin.math.abs
 
@@ -273,7 +274,8 @@ class CircleFloatingView(
 
     private fun setupSpeechManager() {
         speechManager = BaiduSpeechManager(context)
-        speechManager?.setCredentials("Xkmx5j1pbR3NvquUMOFnXo5u", "I56pmB7DrQ1JNwoBMyjVBdJ6CUyIW49x")
+        val credentials = BaiduSpeechConfig.credentials()
+        speechManager?.setCredentials(credentials.apiKey, credentials.secretKey)
 
         speechManager?.setCallback(object : BaiduSpeechManager.Callback {
             override fun onReady() {

@@ -13,7 +13,4 @@ interface TaskStepDao {
 
     @Query("SELECT * FROM task_steps WHERE session_id = :sessionId ORDER BY step_number ASC")
     suspend fun getBySessionId(sessionId: Long): List<TaskStep>
-
-    @Query("DELETE FROM task_steps WHERE session_id = :sessionId")
-    suspend fun deleteBySessionId(sessionId: Long)
 }

@@ -3,16 +3,14 @@ package com.example.speakassist
 import android.os.Bundle
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.Toolbar
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.data.AppDatabase
 import com.example.ui.adapter.TaskStepAdapter
+import com.example.ui.bindSessionStatus
+import com.example.ui.formatSessionTime
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * 历史详情页
@@ -45,11 +43,7 @@ class HistoryDetailActivity : AppCompatActivity() {
     }
 
     private fun setupToolbar() {
-        val toolbar = findViewById<Toolbar>(R.id.toolbar)
-        setSupportActionBar(toolbar)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.title = getString(R.string.history_detail_title)
-        toolbar.setNavigationOnClickListener { finish() }
+        setupBackToolbar(findViewById(R.id.toolbar), getString(R.string.history_detail_title))
     }
 
     private fun initViews() {
@@ -74,35 +68,12 @@ class HistoryDetailActivity : AppCompatActivity() {
             }
 
             tvCommand.text = session.userCommand
-            tvTime.text = formatTime(session.createdAt)
-
-            when (session.status) {
-                "success" -> {
-                    tvStatus.text = "成功"
-                    tvStatus.setBackgroundResource(R.drawable.bg_status_success)
-                }
-                "fail" -> {
-                    tvStatus.text = "失败"
-                    tvStatus.setBackgroundResource(R.drawable.bg_status_fail)
-                }
-                "cancelled" -> {
-                    tvStatus.text = "已取消"
-                    tvStatus.setBackgroundResource(R.drawable.bg_status_running)
-                }
-                else -> {
-                    tvStatus.text = "进行中"
-                    tvStatus.setBackgroundResource(R.drawable.bg_status_running)
-                }
-            }
+            tvTime.text = formatSessionTime(session.createdAt, "yyyy-MM-dd HH:mm:ss")
+            tvStatus.bindSessionStatus(session.status)
 
             // 加载步骤列表
             val steps = db.taskStepDao().getBySessionId(sessionId)
             stepAdapter.submitList(steps)
         }
-    }
-
-    private fun formatTime(timestamp: Long): String {
-        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-        return sdf.format(Date(timestamp))
     }
 }

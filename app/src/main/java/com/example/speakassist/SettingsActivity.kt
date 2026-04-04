@@ -9,7 +9,6 @@ import android.provider.Settings
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.Toolbar
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.data.AppDatabase
@@ -41,16 +40,7 @@ class SettingsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
 
-        // 设置Toolbar
-        val toolbar = findViewById<Toolbar>(R.id.toolbar)
-        setSupportActionBar(toolbar)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.title = getString(R.string.nav_settings)
-
-        // 返回按钮点击事件
-        toolbar.setNavigationOnClickListener {
-            finish()
-        }
+        setupBackToolbar(findViewById(R.id.toolbar), getString(R.string.nav_settings))
 
         // 初始化权限状态视图
         initPermissionViews()

@@ -9,9 +9,8 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.data.entity.TaskSession
 import com.example.speakassist.R
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.example.ui.bindSessionStatus
+import com.example.ui.formatSessionTime
 
 /**
  * 历史会话列表适配器
@@ -38,34 +37,9 @@ class TaskSessionAdapter(
 
         fun bind(session: TaskSession) {
             tvCommand.text = session.userCommand
-            tvTime.text = formatTime(session.createdAt)
-
-            // 设置状态标签
-            when (session.status) {
-                "success" -> {
-                    tvStatus.text = "成功"
-                    tvStatus.setBackgroundResource(R.drawable.bg_status_success)
-                }
-                "fail" -> {
-                    tvStatus.text = "失败"
-                    tvStatus.setBackgroundResource(R.drawable.bg_status_fail)
-                }
-                "cancelled" -> {
-                    tvStatus.text = "已取消"
-                    tvStatus.setBackgroundResource(R.drawable.bg_status_running)
-                }
-                else -> {
-                    tvStatus.text = "进行中"
-                    tvStatus.setBackgroundResource(R.drawable.bg_status_running)
-                }
-            }
-
+            tvTime.text = formatSessionTime(session.createdAt, "yyyy-MM-dd HH:mm")
+            tvStatus.bindSessionStatus(session.status)
             itemView.setOnClickListener { onItemClick(session) }
-        }
-
-        private fun formatTime(timestamp: Long): String {
-            val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-            return sdf.format(Date(timestamp))
         }
     }
 

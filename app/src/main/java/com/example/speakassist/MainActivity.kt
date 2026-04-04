@@ -15,6 +15,7 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.ImageButton
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -27,6 +28,7 @@ import androidx.core.widget.addTextChangedListener
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.service.MyInputMethodService
+import com.example.speech.BaiduSpeechConfig
 import com.example.speech.BaiduSpeechManager
 import com.example.ui.adapter.ChatMessageAdapter
 import com.example.ui.viewmodel.ChatViewModel
@@ -66,10 +68,6 @@ class MainActivity : AppCompatActivity() {
     // ==================== 业务逻辑 ====================
     private lateinit var speechManager: BaiduSpeechManager  // 百度语音管理器
     private lateinit var chatViewModel: ChatViewModel       // 聊天业务逻辑
-
-    // 百度语音 API 凭证
-    private val BAIDU_API_KEY = "Xkmx5j1pbR3NvquUMOFnXo5u"
-    private val BAIDU_SECRET_KEY = "I56pmB7DrQ1JNwoBMyjVBdJ6CUyIW49x"
 
     // ==================== 权限请求 ====================
     // 录音权限请求回调
@@ -111,6 +109,8 @@ class MainActivity : AppCompatActivity() {
 
         // 处理窗口Insets
         setupWindowInsets()
+
+        setupBackPressedHandler()
 
         // 观察悬浮窗发起的任务执行状态
         observeExecutionState()
@@ -280,7 +280,8 @@ class MainActivity : AppCompatActivity() {
      */
     private fun setupSpeechManager() {
         speechManager = BaiduSpeechManager(this)
-        speechManager.setCredentials(BAIDU_API_KEY, BAIDU_SECRET_KEY)
+        val credentials = BaiduSpeechConfig.credentials()
+        speechManager.setCredentials(credentials.apiKey, credentials.secretKey)
 
         speechManager.setCallback(object : BaiduSpeechManager.Callback {
             override fun onReady() {
@@ -607,22 +608,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
+     * 处理返回手势/返回键：优先关闭侧栏
+     */
+    private fun setupBackPressedHandler() {
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
+                    drawerLayout.closeDrawer(GravityCompat.START)
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
+    }
+
+    /**
      * 生命周期 - onDestroy
      * 释放语音管理器资源
      */
     override fun onDestroy() {
         super.onDestroy()
         speechManager.destroy()
-    }
-
-    /**
-     * 按下返回键时关闭侧栏
-     */
-    override fun onBackPressed() {
-        if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
-            drawerLayout.closeDrawer(GravityCompat.START)
-        } else {
-            super.onBackPressed()
-        }
     }
 }

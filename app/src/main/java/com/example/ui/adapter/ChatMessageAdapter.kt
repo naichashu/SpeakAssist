@@ -16,8 +16,8 @@ import com.example.ui.adapter.ChatMessageAdapter.ChatMessageItem
  * 用于在RecyclerView中显示用户消息和系统消息
  *
  * 消息类型：
- * - 用户消息：右对齐，蓝色背景(#2196F3)
- * - 系统消息：左对齐，灰色背景(#F0F0F0)
+ * - 用户消息：右对齐，使用用户消息气泡背景
+ * - 系统消息：左对齐，使用系统消息气泡背景
  */
 class ChatMessageAdapter : ListAdapter<ChatMessageItem, ChatMessageAdapter.MessageViewHolder>(MessageDiffCallback()) {
 
@@ -68,12 +68,12 @@ class ChatMessageAdapter : ListAdapter<ChatMessageItem, ChatMessageAdapter.Messa
                 )
 
             if (item.isUser) {
-                // 用户消息：右对齐，绿色背景，深色文字
+                // 用户消息：右对齐，使用用户消息气泡背景
                 layoutParams.gravity = Gravity.END or Gravity.CENTER_VERTICAL
                 tvMessageContent.setBackgroundResource(R.drawable.bg_user_message)
                 tvMessageContent.setTextColor(ContextCompat.getColor(itemView.context, android.R.color.black))
             } else {
-                // 系统消息：左对齐，灰色背景，深色文字
+                // 系统消息：左对齐，使用系统消息气泡背景
                 layoutParams.gravity = Gravity.START or Gravity.CENTER_VERTICAL
                 tvMessageContent.setBackgroundResource(R.drawable.bg_system_message)
                 tvMessageContent.setTextColor(ContextCompat.getColor(itemView.context, android.R.color.black))

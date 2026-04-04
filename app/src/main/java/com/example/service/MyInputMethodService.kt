@@ -84,7 +84,10 @@ class MyInputMethodService : InputMethodService() {
     }
 
     override fun onEvaluateFullscreenMode(): Boolean = false
-    override fun onEvaluateInputViewShown(): Boolean = true
+    override fun onEvaluateInputViewShown(): Boolean {
+        super.onEvaluateInputViewShown()
+        return true
+    }
 
 
     /**

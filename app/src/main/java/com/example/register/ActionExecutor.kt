@@ -290,22 +290,6 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         }
     }
 
-    /**
-     * 应用返回前台
-     */
-    fun bringAppToForeground() {
-        try {
-            val packageName = service.packageName
-            val intent = service.packageManager.getLaunchIntentForPackage(packageName)
-            if (intent != null) {
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                service.startActivity(intent)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "返回应用失败", e)
-        }
-    }
-
     private suspend fun executeAction(
         action: String,
         actionObj: JsonObject,
