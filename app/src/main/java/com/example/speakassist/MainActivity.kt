@@ -27,6 +27,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.widget.addTextChangedListener
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.service.MyAccessibilityService
 import com.example.service.MyInputMethodService
 import com.example.speech.BaiduSpeechConfig
 import com.example.speech.BaiduSpeechManager
@@ -83,6 +84,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        MyAccessibilityService.resumeFloatingOverlays()
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
 
@@ -628,6 +630,7 @@ class MainActivity : AppCompatActivity() {
      * 释放语音管理器资源
      */
     override fun onDestroy() {
+        MyAccessibilityService.suspendFloatingOverlays()
         super.onDestroy()
         speechManager.destroy()
     }

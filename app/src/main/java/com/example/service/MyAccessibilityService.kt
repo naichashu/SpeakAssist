@@ -29,6 +29,14 @@ class MyAccessibilityService : AccessibilityService() {
 
         // 快速判断服务是否已激活（实例是否存在）
         fun isServiceEnabled(): Boolean = autoAccessibilityService != null
+
+        fun suspendFloatingOverlays() {
+            autoAccessibilityService?.floatingWindowManager?.suspendOverlays()
+        }
+
+        fun resumeFloatingOverlays() {
+            autoAccessibilityService?.floatingWindowManager?.resumeOverlays()
+        }
     }
 
     private val _currentApp = MutableStateFlow<String?>(null)

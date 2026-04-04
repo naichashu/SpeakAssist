@@ -89,6 +89,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val accessibilityService = MyAccessibilityService.getInstance()
             ?: return TaskResult(false, "无障碍服务未启用")
         Log.d(TAG, "开始执行任务")
+        messageContext.clear()
 
         // 重置状态并通知开始执行
         _cancelRequested.value = false
@@ -305,6 +306,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             else -> "fail"
         }
         db.taskSessionDao().updateStatus(sessionId, dbStatus)
+        messageContext.clear()
         _executionState.value = _executionState.value.copy(
             isRunning = false,
             isCompleted = true,

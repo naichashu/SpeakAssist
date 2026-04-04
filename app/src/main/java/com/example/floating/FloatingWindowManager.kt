@@ -37,6 +37,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
 
     private var isCircleEnabled = false // DataStore 的开关状态
     private var isTaskRunning = false   // 当前是否有任务在执行
+    private var overlaysSuspended = false
     private var executionStateJob: Job? = null
 
     /**
@@ -52,19 +53,41 @@ class FloatingWindowManager(private val service: AccessibilityService) {
      * 销毁所有悬浮窗并释放资源
      */
     fun destroy() {
+        hideAllOverlays()
+        scope.cancel()
+        Log.d(TAG, "FloatingWindowManager 已销毁")
+    }
+
+    fun resumeOverlays() {
+        handler.post {
+            if (!overlaysSuspended) return@post
+            overlaysSuspended = false
+            if (isCircleEnabled && !isTaskRunning) {
+                showCircle()
+            }
+        }
+    }
+
+    fun suspendOverlays() {
+        handler.post {
+            overlaysSuspended = true
+            hideAllOverlays()
+        }
+    }
+
+    private fun hideAllOverlays() {
         handler.removeCallbacksAndMessages(null)
         circleView?.destroy()
         circleView = null
         executionCardView?.destroy()
         executionCardView = null
-        scope.cancel()
-        Log.d(TAG, "FloatingWindowManager 已销毁")
+        isTaskRunning = false
     }
 
     // ==================== 圆形悬浮窗 ====================
 
     fun showCircle() {
-        if (isTaskRunning) return
+        if (isTaskRunning || overlaysSuspended) return
         handler.post {
             if (circleView?.isShowing() == true) return@post
             circleView?.destroy()
@@ -87,6 +110,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
     // ==================== 执行卡片 ====================
 
     private fun showExecutionCard(title: String) {
+        if (overlaysSuspended) return
         handler.post {
             executionCardView?.destroy()
             executionCardView = ExecutionCardView(service, windowManager)
@@ -110,6 +134,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
 
     suspend fun restoreAfterScreenshot() {
         withContext(Dispatchers.Main.immediate) {
+            if (overlaysSuspended) return@withContext
             val card = executionCardView ?: return@withContext
             if (!card.isShowing()) return@withContext
             card.rootView?.let { view ->
