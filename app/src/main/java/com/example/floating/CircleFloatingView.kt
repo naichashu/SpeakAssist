@@ -38,8 +38,8 @@ class CircleFloatingView(
 
     companion object {
         private const val TAG = "CircleFloatingView"
-        private const val CIRCLE_SIZE = 60 // dp
-        private const val EXPANDED_WIDTH = 240 // dp
+        private const val CIRCLE_SIZE = 48 // dp
+        private const val EXPANDED_WIDTH = 180 // dp
         private const val ANIMATION_DURATION = 200L
         private const val ERROR_DISPLAY_DURATION = 3000L
         private const val RESULT_DISPLAY_DURATION = 800L
@@ -93,6 +93,7 @@ class CircleFloatingView(
         circleContainer = rootView?.findViewById(R.id.circleContainer)
         expandedContainer = rootView?.findViewById(R.id.expandedContainer)
         tvStatus = rootView?.findViewById(R.id.tvStatus)
+        tvStatus?.isSelected = true
         ivExpandedLogo = rootView?.findViewById(R.id.ivExpandedLogo)
 
         val overlayType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

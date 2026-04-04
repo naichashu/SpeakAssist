@@ -3,53 +3,66 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content">
 
-    <!-- 圆形态：60dp 圆形按钮 -->
     <FrameLayout
         android:id="@+id/circleContainer"
-        android:layout_width="60dp"
-        android:layout_height="60dp"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
         android:background="@drawable/bg_floating_circle"
-        android:elevation="6dp">
+        android:clipToOutline="true">
 
         <ImageView
             android:id="@+id/ivCircleLogo"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
             android:layout_gravity="center"
-            android:src="@mipmap/ic_launcher"
-            android:contentDescription="@string/app_icon" />
+            android:adjustViewBounds="true"
+            android:contentDescription="@string/app_icon"
+            android:scaleType="centerCrop"
+            android:src="@drawable/floating_logo" />
     </FrameLayout>
 
-    <!-- 展开态：logo + 文字 -->
     <LinearLayout
         android:id="@+id/expandedContainer"
-        android:layout_width="240dp"
-        android:layout_height="60dp"
+        android:layout_width="wrap_content"
+        android:layout_height="48dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:background="@drawable/bg_floating_expanded"
-        android:elevation="6dp"
-        android:paddingStart="8dp"
-        android:paddingEnd="16dp"
         android:visibility="gone">
 
-        <ImageView
-            android:id="@+id/ivExpandedLogo"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:src="@mipmap/ic_launcher"
-            android:contentDescription="@string/app_icon" />
+        <FrameLayout
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_floating_circle"
+            android:clipToOutline="true">
+
+            <ImageView
+                android:id="@+id/ivExpandedLogo"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="center"
+                android:adjustViewBounds="true"
+                android:contentDescription="@string/app_icon"
+                android:scaleType="centerCrop"
+                android:src="@drawable/floating_logo" />
+        </FrameLayout>
 
         <TextView
             android:id="@+id/tvStatus"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="12dp"
+            android:layout_width="126dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/bg_floating_expanded"
+            android:gravity="center_vertical"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
             android:text="正在听......"
             android:textColor="@android:color/white"
-            android:textSize="16sp"
+            android:textSize="14sp"
+            android:textStyle="bold"
             android:singleLine="true"
-            android:ellipsize="end" />
+            android:ellipsize="marquee"
+            android:marqueeRepeatLimit="marquee_forever"
+            android:focusable="true"
+            android:focusableInTouchMode="true" />
     </LinearLayout>
 </FrameLayout>
