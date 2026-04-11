@@ -6,6 +6,8 @@ import android.os.Looper
 import android.util.Log
 import android.view.WindowManager
 import com.example.data.SettingsPrefs
+import com.example.speech.BaiduSpeechConfig
+import com.example.speech.BaiduSpeechManager
 import com.example.ui.viewmodel.ChatViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,34 +28,65 @@ class FloatingWindowManager(private val service: AccessibilityService) {
 
     companion object {
         private const val TAG = "FloatingWindowManager"
+        private const val RESULT_DISPLAY_DURATION = 800L
+        private const val ERROR_DISPLAY_DURATION = 1500L
     }
 
     private val windowManager = service.getSystemService(AccessibilityService.WINDOW_SERVICE) as WindowManager
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val handler = Handler(Looper.getMainLooper())
+    private val speechManager = BaiduSpeechManager(service)
 
     private var circleView: CircleFloatingView? = null
     private var executionCardView: ExecutionCardView? = null
 
-    private var isCircleEnabled = false // DataStore 的开关状态
-    private var isTaskRunning = false   // 当前是否有任务在执行
+    private var isCircleEnabled = false
+    private var isTaskRunning = false
     private var overlaysSuspended = false
     private var executionStateJob: Job? = null
 
-    /**
-     * 初始化：观察 DataStore 设置 + 观察任务执行状态
-     */
     fun init() {
+        val credentials = BaiduSpeechConfig.credentials()
+        speechManager.setCredentials(credentials.apiKey, credentials.secretKey)
+        speechManager.setCallback(object : BaiduSpeechManager.Callback {
+            override fun onReady() {
+                handler.post {
+                    circleView?.showListening()
+                }
+            }
+
+            override fun onResult(text: String) {
+                handler.post {
+                    circleView?.showRecognitionResult(text)
+                }
+                handler.postDelayed({
+                    circleView?.collapseToIdle()
+                    onVoiceResult(text)
+                }, RESULT_DISPLAY_DURATION)
+            }
+
+            override fun onError(message: String) {
+                handler.post {
+                    circleView?.showRecognitionError(message)
+                }
+                handler.postDelayed({
+                    circleView?.collapseToIdle()
+                }, ERROR_DISPLAY_DURATION)
+            }
+
+            override fun onEnd() = Unit
+
+            override fun onVolumeChanged(volume: Int) = Unit
+        })
+
         observeSettings()
         observeExecutionState()
         Log.d(TAG, "FloatingWindowManager 已初始化")
     }
 
-    /**
-     * 销毁所有悬浮窗并释放资源
-     */
     fun destroy() {
         hideAllOverlays()
+        speechManager.destroy()
         scope.cancel()
         Log.d(TAG, "FloatingWindowManager 已销毁")
     }
@@ -77,6 +110,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
 
     private fun hideAllOverlays() {
         handler.removeCallbacksAndMessages(null)
+        speechManager.cancel()
         circleView?.destroy()
         circleView = null
         executionCardView?.destroy()
@@ -84,16 +118,20 @@ class FloatingWindowManager(private val service: AccessibilityService) {
         isTaskRunning = false
     }
 
-    // ==================== 圆形悬浮窗 ====================
-
     fun showCircle() {
         if (isTaskRunning || overlaysSuspended) return
         handler.post {
-            if (circleView?.isShowing() == true) return@post
-            circleView?.destroy()
-            circleView = CircleFloatingView(service, windowManager) { text ->
-                onVoiceResult(text)
+            if (circleView?.isShowing() == true) {
+                return@post
             }
+            circleView?.destroy()
+            circleView = CircleFloatingView(service, windowManager, object : CircleFloatingView.Listener {
+                override fun onCircleClicked() {
+                    if (!speechManager.isListening()) {
+                        speechManager.start()
+                    }
+                }
+            })
             circleView?.create()
             Log.d(TAG, "圆形悬浮窗已显示")
         }
@@ -101,13 +139,12 @@ class FloatingWindowManager(private val service: AccessibilityService) {
 
     fun hideCircle() {
         handler.post {
+            speechManager.cancel()
             circleView?.destroy()
             circleView = null
             Log.d(TAG, "圆形悬浮窗已隐藏")
         }
     }
-
-    // ==================== 执行卡片 ====================
 
     private fun showExecutionCard(title: String) {
         if (overlaysSuspended) return
@@ -117,8 +154,6 @@ class FloatingWindowManager(private val service: AccessibilityService) {
             executionCardView?.create(title)
         }
     }
-
-    // ==================== 截屏隐藏/恢复 ====================
 
     suspend fun hideForScreenshot() {
         withContext(Dispatchers.Main.immediate) {
@@ -149,12 +184,8 @@ class FloatingWindowManager(private val service: AccessibilityService) {
         }
     }
 
-    // ==================== 语音结果处理 ====================
-
     private fun onVoiceResult(text: String) {
         Log.d(TAG, "语音识别结果：$text")
-
-        // 在协程中创建 ViewModel 并执行任务
         scope.launch {
             try {
                 val viewModel = ChatViewModel(service.application)
@@ -167,11 +198,6 @@ class FloatingWindowManager(private val service: AccessibilityService) {
         }
     }
 
-    // ==================== 观察器 ====================
-
-    /**
-     * 观察 DataStore 中的悬浮窗开关设置
-     */
     private fun observeSettings() {
         scope.launch {
             SettingsPrefs.floatingWindowEnabled(service.applicationContext).collect { enabled ->
@@ -185,24 +211,18 @@ class FloatingWindowManager(private val service: AccessibilityService) {
         }
     }
 
-    /**
-     * 观察 ChatViewModel 的任务执行状态
-     */
     private fun observeExecutionState() {
         executionStateJob = scope.launch {
             ChatViewModel.executionState.collectLatest { state ->
                 when {
-                    // 任务开始
                     state.isRunning && !isTaskRunning -> {
                         isTaskRunning = true
                         hideCircle()
                         showExecutionCard(state.taskTitle)
                     }
-                    // 步骤更新
                     state.isRunning && state.currentStep > 0 -> {
                         executionCardView?.updateStep(state.currentStep, state.currentAction)
                     }
-                    // 任务完成
                     state.isCompleted && isTaskRunning -> {
                         isTaskRunning = false
                         val title = when {
@@ -211,15 +231,13 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                             else -> "执行失败"
                         }
                         executionCardView?.showCompletion(state.isSuccess, title, state.resultMessage)
-                        // 5秒后恢复圆形按钮（卡片会自己消失）
                         handler.postDelayed({
                             executionCardView = null
                             if (isCircleEnabled) {
                                 showCircle()
                             }
-                            // 重置状态以准备下次任务
                             ChatViewModel.resetState()
-                        }, 5500) // 比卡片的5秒稍长，确保卡片先消失
+                        }, 5500)
                     }
                 }
             }

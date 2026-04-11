@@ -2,8 +2,8 @@ package com.example.register
 
 import android.content.Intent
 import android.util.Log
+import com.example.input.TextInputExecutor
 import com.example.service.MyAccessibilityService
-import com.example.service.MyInputMethodService
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.google.gson.stream.JsonReader
@@ -446,28 +446,18 @@ class ActionExecutor(private val service: MyAccessibilityService) {
             message = "缺少text参数"
         )
 
-        // 检查输入法服务是否已启用
-        if (!MyInputMethodService.isEnabled(service)) {
-            return ActionResult(
-                success = false,
-                message = "输入法服务未启用，无法完成输入操作"
-            )
-        }
+        val inputResult = TextInputExecutor(service, service).inputText(text)
 
-        // 输入文本
-        val inputSuccess = MyInputMethodService.inputText(text)
-
-        // 返回结果
-        return if (inputSuccess) {
+        return if (inputResult.success) {
             ActionResult(
                 success = true,
-                message = "文本输入成功：$text",
+                message = inputResult.message,
                 actionDetail = ActionDetail(type = "type", text = text, waitMs = INPUT_SETTLE_DELAY_MS)
             )
         } else {
             ActionResult(
                 success = false,
-                message = "输入法已启用，但输入失败"
+                message = inputResult.message
             )
         }
 

@@ -27,6 +27,9 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.widget.addTextChangedListener
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.data.SettingsPrefs
+import com.example.input.ImeActivationHelper
+import com.example.input.TextInputMode
 import com.example.service.MyAccessibilityService
 import com.example.service.MyInputMethodService
 import com.example.speech.BaiduSpeechConfig
@@ -36,6 +39,7 @@ import com.example.ui.viewmodel.ChatViewModel
 import com.google.android.material.navigation.NavigationView
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -183,56 +187,63 @@ class MainActivity : AppCompatActivity() {
      * 检查应用所需的各种权限，并在权限缺失时显示提示横幅
      */
     private fun checkPermissions() {
-        // 检查无障碍服务是否启用 - 使用更可靠的方式
-        var accessibilityEnabled = false
-        try {
-            val accessibilityManager = getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
-            val enabledServices = accessibilityManager.getEnabledAccessibilityServiceList(
-                AccessibilityServiceInfo.FEEDBACK_ALL_MASK
-            )
-            val myPackageName = packageName
-            accessibilityEnabled = enabledServices.any { serviceInfo ->
-                serviceInfo.resolveInfo?.serviceInfo?.packageName == myPackageName
+        lifecycleScope.launch {
+            // 检查无障碍服务是否启用 - 使用更可靠的方式
+            var accessibilityEnabled = false
+            try {
+                val accessibilityManager = getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
+                val enabledServices = accessibilityManager.getEnabledAccessibilityServiceList(
+                    AccessibilityServiceInfo.FEEDBACK_ALL_MASK
+                )
+                val myPackageName = packageName
+                accessibilityEnabled = enabledServices.any { serviceInfo ->
+                    serviceInfo.resolveInfo?.serviceInfo?.packageName == myPackageName
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "检查无障碍服务失败", e)
             }
-        } catch (e: Exception) {
-            Log.e("MainActivity", "检查无障碍服务失败", e)
-        }
 
-        // 检查输入法是否启用
-        val inputMethodEnabled = MyInputMethodService.isEnabled(this)
+            // 检查输入法是否启用
+            val inputMethodEnabled = MyInputMethodService.isEnabled(this@MainActivity)
+            val textInputMode = SettingsPrefs.textInputMode(this@MainActivity).first()
 
-        // 检查录音权限
-        val audioPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
-                PackageManager.PERMISSION_GRANTED
+            // 检查录音权限
+            val audioPermission = ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) ==
+                    PackageManager.PERMISSION_GRANTED
 
-        // 检查悬浮窗权限
-        val overlayPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Settings.canDrawOverlays(this)
-        } else {
-            true
-        }
+            // 检查悬浮窗权限
+            val overlayPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                Settings.canDrawOverlays(this@MainActivity)
+            } else {
+                true
+            }
 
-        // 收集未开启的权限
-        val missingPermissions = mutableListOf<String>()
-        if (!accessibilityEnabled) missingPermissions.add(getString(R.string.permission_accessibility))
-        if (!inputMethodEnabled) missingPermissions.add(getString(R.string.permission_input_method))
-        if (!audioPermission) missingPermissions.add(getString(R.string.permission_audio))
-        if (!overlayPermission) missingPermissions.add(getString(R.string.permission_overlay))
+            // 收集未开启的权限
+            val missingPermissions = mutableListOf<String>()
+            if (!accessibilityEnabled) missingPermissions.add(getString(R.string.permission_accessibility))
+            if (textInputMode == TextInputMode.IME_SIMULATION && !inputMethodEnabled) {
+                missingPermissions.add(getString(R.string.permission_input_method))
+            }
+            if (!audioPermission) missingPermissions.add(getString(R.string.permission_audio))
+            if (!overlayPermission) missingPermissions.add(getString(R.string.permission_overlay))
 
-        // 根据权限状态显示/隐藏横幅
-        if (missingPermissions.isNotEmpty()) {
-            permissionBanner.visibility = View.VISIBLE
-            tvPermissionHint.text = getString(R.string.permission_required_hint) + "\n" +
-                    missingPermissions.joinToString("、")
-        } else {
-            permissionBanner.visibility = View.GONE
-        }
+            // 根据权限状态显示/隐藏横幅
+            if (missingPermissions.isNotEmpty()) {
+                permissionBanner.visibility = View.VISIBLE
+                tvPermissionHint.text = getString(R.string.permission_required_hint) + "\n" +
+                        missingPermissions.joinToString("、")
+            } else {
+                permissionBanner.visibility = View.GONE
+            }
 
-        Log.d("MainActivity", "权限状态: 无障碍=$accessibilityEnabled, 输入法=$inputMethodEnabled, 录音=$audioPermission, 悬浮窗=$overlayPermission")
+            Log.d(
+                "MainActivity",
+                "权限状态: 无障碍=$accessibilityEnabled, 输入法=$inputMethodEnabled, 输入方式=$textInputMode, 录音=$audioPermission, 悬浮窗=$overlayPermission"
+            )
 
-        // 设置权限设置按钮点击事件
-        btnPermissionSettings.setOnClickListener {
-            openAccessibilitySettings()
+            btnPermissionSettings.setOnClickListener {
+                openAccessibilitySettings()
+            }
         }
     }
 
@@ -542,18 +553,20 @@ class MainActivity : AppCompatActivity() {
      * 跳转至无障碍服务和输入法设置页面
      */
     private fun openAccessibilitySettings() {
-        // 打开无障碍服务设置
-        if (!isAccessibilityServiceEnabled()) {
-            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            })
-        }
+        lifecycleScope.launch {
+            val textInputMode = runCatching {
+                SettingsPrefs.textInputMode(this@MainActivity).first()
+            }.getOrDefault(TextInputMode.DIRECT)
 
-        // 打开输入法设置
-        if (!MyInputMethodService.isEnabled(this)) {
-            startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            })
+            if (!isAccessibilityServiceEnabled()) {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                })
+            }
+
+            if (textInputMode == TextInputMode.IME_SIMULATION) {
+                ImeActivationHelper.ensureImeReady(this@MainActivity)
+            }
         }
     }
 

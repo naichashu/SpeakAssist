@@ -213,16 +213,16 @@ class BaiduSpeechManager(private val context: Context) {
         val audioData = ByteArrayOutputStream()
         val buffer = ByteArray(bufferSize)
 
-        // 录音循环（最长 60 秒）
+        // 录音循环
         val startTime = System.currentTimeMillis()
         val maxDuration = 60_000L
 
         // 静音检测参数（VAD）
-        val silenceThreshold = 800       // 音量低于此值视为静音（RMS 值）
-        val silenceDuration = 1500L       // 静音持续 1.5 秒后自动停止
-        val minSpeechDuration = 300L      // 至少录到 0.3 秒有效语音才触发静音停止
-        var hasSpeech = false             // 是否检测到过有效语音
-        var silenceStartTime = 0L         // 静音开始时间
+        val silenceThreshold = 800
+        val silenceDuration = 1500L
+        val minSpeechDuration = 300L
+        var hasSpeech = false
+        var silenceStartTime = 0L
 
         while (isRecording && System.currentTimeMillis() - startTime < maxDuration) {
             val read = audioRecord?.read(buffer, 0, buffer.size) ?: -1
@@ -247,11 +247,9 @@ class BaiduSpeechManager(private val context: Context) {
                 // 静音检测逻辑
                 val now = System.currentTimeMillis()
                 if (rms > silenceThreshold) {
-                    // 检测到语音
                     hasSpeech = true
                     silenceStartTime = 0L
                 } else if (hasSpeech) {
-                    // 有过语音后进入静音
                     if (silenceStartTime == 0L) {
                         silenceStartTime = now
                     }

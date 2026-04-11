@@ -1,7 +1,9 @@
 package com.example.service
 
+import android.content.ComponentName
 import android.content.Context
 import android.inputmethodservice.InputMethodService
+import android.provider.Settings
 import android.util.Log
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
@@ -20,10 +22,30 @@ class MyInputMethodService : InputMethodService() {
         private const val TAG = "MyInputMethodService"
         private var instance: MyInputMethodService? = null
         fun getInstance(): MyInputMethodService? = instance
+
+        private fun imeComponent(context: Context): ComponentName {
+            return ComponentName(context, MyInputMethodService::class.java)
+        }
+
+        private fun imeIds(context: Context): Set<String> {
+            val component = imeComponent(context)
+            return setOf(component.flattenToString(), component.flattenToShortString())
+        }
+
         fun isEnabled(context: Context): Boolean {
             val imm = context.getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            val myImeName = "com.example.service.MyInputMethodService"
-            return imm.enabledInputMethodList.any { it.serviceName == myImeName }
+            val imeServiceName = MyInputMethodService::class.java.name
+            return imm.enabledInputMethodList.any {
+                it.packageName == context.packageName && it.serviceName == imeServiceName
+            }
+        }
+
+        fun isCurrentInputMethod(context: Context): Boolean {
+            val currentImeId = Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.DEFAULT_INPUT_METHOD
+            ) ?: return false
+            return currentImeId in imeIds(context)
         }
 
         /**
