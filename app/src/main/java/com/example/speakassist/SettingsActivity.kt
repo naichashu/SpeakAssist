@@ -50,6 +50,7 @@ class SettingsActivity : AppCompatActivity() {
         setupClickListeners()
         setupTextInputModeRow()
         setupFloatingWindowSwitch()
+        setupVoiceWakeSwitch()
     }
 
     override fun onResume() {
@@ -277,6 +278,25 @@ class SettingsActivity : AppCompatActivity() {
                 SettingsPrefs.setFloatingWindowEnabled(this@SettingsActivity, isChecked)
                 MyAccessibilityService.getInstance()?.floatingWindowManager?.let { manager ->
                     if (isChecked) manager.showCircle() else manager.hideCircle()
+                }
+            }
+        }
+    }
+
+    private fun setupVoiceWakeSwitch() {
+        val switchVoiceWake = findViewById<SwitchMaterial>(R.id.switchVoiceWake)
+
+        lifecycleScope.launch {
+            val enabled = SettingsPrefs.voiceWakeEnabled(this@SettingsActivity).first()
+            switchVoiceWake.isChecked = enabled
+        }
+
+        switchVoiceWake.setOnCheckedChangeListener { _, isChecked ->
+            lifecycleScope.launch {
+                SettingsPrefs.setVoiceWakeEnabled(this@SettingsActivity, isChecked)
+                MyAccessibilityService.getInstance()?.floatingWindowManager?.let { manager ->
+                    // 唤醒词的启动/停止由 FloatingWindowManager 自己管理
+                    // 这里只需要保存设置即可
                 }
             }
         }

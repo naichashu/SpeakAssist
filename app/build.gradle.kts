@@ -83,4 +83,7 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+
+    // Vosk 离线语音识别（唤醒词 + 本地命令识别）
+    implementation("com.alphacephei:vosk-android:0.3.47")
 }

@@ -8,6 +8,7 @@ import android.view.WindowManager
 import com.example.data.SettingsPrefs
 import com.example.speech.BaiduSpeechConfig
 import com.example.speech.BaiduSpeechManager
+import com.example.speech.WakeWordListeningManager
 import com.example.ui.viewmodel.ChatViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -43,7 +44,9 @@ class FloatingWindowManager(private val service: AccessibilityService) {
     private var isCircleEnabled = false
     private var isTaskRunning = false
     private var overlaysSuspended = false
+    private var isVoiceWakeEnabled = false
     private var executionStateJob: Job? = null
+    private var wakeWordManager: WakeWordListeningManager? = null
 
     fun init() {
         val credentials = BaiduSpeechConfig.credentials()
@@ -79,14 +82,59 @@ class FloatingWindowManager(private val service: AccessibilityService) {
             override fun onVolumeChanged(volume: Int) = Unit
         })
 
+        initWakeWordManager()
         observeSettings()
         observeExecutionState()
         Log.d(TAG, "FloatingWindowManager 已初始化")
     }
 
+    private fun initWakeWordManager() {
+        wakeWordManager = WakeWordListeningManager(service)
+        if (wakeWordManager?.init() == true) {
+            wakeWordManager?.listener = object : WakeWordListeningManager.Listener {
+                override fun onWakeWordDetected() {
+                    handler.post {
+                        Log.d(TAG, "唤醒词检测到")
+                        circleView?.showListening()
+                    }
+                }
+
+                override fun onCommandRecognized(text: String) {
+                    handler.post {
+                        Log.d(TAG, "唤醒词命令识别结果: $text")
+                        circleView?.showRecognitionResult(text)
+                    }
+                    handler.postDelayed({
+                        circleView?.collapseToIdle()
+                        onVoiceResult(text)
+                    }, RESULT_DISPLAY_DURATION)
+                }
+
+                override fun onError(message: String) {
+                    handler.post {
+                        Log.e(TAG, "唤醒词监听错误: $message")
+                        circleView?.showRecognitionError(message)
+                    }
+                    handler.postDelayed({
+                        circleView?.collapseToIdle()
+                    }, ERROR_DISPLAY_DURATION)
+                }
+
+                override fun onStateChanged(state: WakeWordListeningManager.State) {
+                    Log.d(TAG, "唤醒词监听状态: $state")
+                }
+            }
+            Log.d(TAG, "唤醒词监听管理器初始化成功")
+        } else {
+            Log.w(TAG, "唤醒词监听管理器初始化失败")
+        }
+    }
+
     fun destroy() {
         hideAllOverlays()
         speechManager.destroy()
+        wakeWordManager?.destroy()
+        wakeWordManager = null
         scope.cancel()
         Log.d(TAG, "FloatingWindowManager 已销毁")
     }
@@ -98,12 +146,14 @@ class FloatingWindowManager(private val service: AccessibilityService) {
             if (isCircleEnabled && !isTaskRunning) {
                 showCircle()
             }
+            startWakeWordListening()
         }
     }
 
     fun suspendOverlays() {
         handler.post {
             overlaysSuspended = true
+            stopWakeWordListening()
             hideAllOverlays()
         }
     }
@@ -133,6 +183,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                 }
             })
             circleView?.create()
+            startWakeWordListening()
             Log.d(TAG, "圆形悬浮窗已显示")
         }
     }
@@ -142,7 +193,36 @@ class FloatingWindowManager(private val service: AccessibilityService) {
             speechManager.cancel()
             circleView?.destroy()
             circleView = null
+            stopWakeWordListening()
             Log.d(TAG, "圆形悬浮窗已隐藏")
+        }
+    }
+
+    private fun startWakeWordListening() {
+        if (!isVoiceWakeEnabled) {
+            Log.d(TAG, "语音唤醒开关关闭，跳过启动监听")
+            return
+        }
+        if (overlaysSuspended || isTaskRunning || circleView == null) {
+            Log.d(TAG, "当前场景不允许启动唤醒监听")
+            return
+        }
+        if (wakeWordManager?.state?.value == WakeWordListeningManager.State.IDLE) {
+            wakeWordManager?.startListening()
+            Log.d(TAG, "唤醒词监听已启动")
+        }
+    }
+
+    private fun stopWakeWordListening() {
+        wakeWordManager?.stopListening()
+        Log.d(TAG, "唤醒词监听已停止")
+    }
+
+    private fun syncWakeWordListening() {
+        if (isVoiceWakeEnabled && isCircleEnabled && !isTaskRunning && !overlaysSuspended && circleView != null) {
+            startWakeWordListening()
+        } else {
+            stopWakeWordListening()
         }
     }
 
@@ -209,6 +289,13 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                 }
             }
         }
+        scope.launch {
+            SettingsPrefs.voiceWakeEnabled(service.applicationContext).collectLatest { enabled ->
+                isVoiceWakeEnabled = enabled
+                Log.d(TAG, "语音唤醒开关状态: $enabled")
+                syncWakeWordListening()
+            }
+        }
     }
 
     private fun observeExecutionState() {
@@ -236,6 +323,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                             if (isCircleEnabled) {
                                 showCircle()
                             }
+                            syncWakeWordListening()
                             ChatViewModel.resetState()
                         }, 5500)
                     }
