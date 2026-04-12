@@ -53,12 +53,24 @@ class SettingsActivity : AppCompatActivity() {
         setupVoiceWakeSwitch()
     }
 
-    override fun onResume() {
-        super.onResume()
+    private fun onImeStateChanged() {
         completePendingImeModeActivation()
         completePendingImeModeDeactivation()
         syncTextInputModeWithSystemState()
         refreshPermissionStatus()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        onImeStateChanged()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (!hasFocus) {
+            return
+        }
+        onImeStateChanged()
     }
 
     private fun initPermissionViews() {
@@ -134,15 +146,14 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun setupTextInputModeRow() {
         lifecycleScope.launch {
-            val mode = SettingsPrefs.textInputMode(this@SettingsActivity).first()
+            val mode = resolveEffectiveTextInputMode()
             tvTextInputModeValue.text = textInputModeLabel(mode)
         }
     }
 
     private fun showTextInputModeDialog() {
         lifecycleScope.launch {
-            // 选中项和显示文本都统一基于数据库中的 app 偏好
-            val currentMode = SettingsPrefs.textInputMode(this@SettingsActivity).first()
+            val currentMode = resolveEffectiveTextInputMode()
             val options = arrayOf(
                 getString(R.string.text_input_mode_direct),
                 getString(R.string.text_input_mode_ime)
@@ -193,6 +204,8 @@ class SettingsActivity : AppCompatActivity() {
                                     "请切回你的常用输入法",
                                     Toast.LENGTH_LONG
                                 ).show()
+                            } else {
+                                applyTextInputMode(TextInputMode.DIRECT)
                             }
                         }
                     }
@@ -208,6 +221,14 @@ class SettingsActivity : AppCompatActivity() {
             getString(R.string.text_input_mode_ime)
         } else {
             getString(R.string.text_input_mode_direct)
+        }
+    }
+
+    private suspend fun resolveEffectiveTextInputMode(): TextInputMode {
+        return if (MyInputMethodService.isCurrentInputMethod(this@SettingsActivity)) {
+            TextInputMode.IME_SIMULATION
+        } else {
+            TextInputMode.DIRECT
         }
     }
 
@@ -247,12 +268,10 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun syncTextInputModeWithSystemState() {
         lifecycleScope.launch {
-            val currentMode = SettingsPrefs.textInputMode(this@SettingsActivity).first()
-            if (currentMode == TextInputMode.IME_SIMULATION && !MyInputMethodService.isCurrentInputMethod(this@SettingsActivity)) {
-                pendingImeModeActivation = false
-                pendingImeModeDeactivation = false
-                applyTextInputMode(TextInputMode.DIRECT)
-            }
+            pendingImeModeActivation = false
+            pendingImeModeDeactivation = false
+            val effectiveMode = resolveEffectiveTextInputMode()
+            applyTextInputMode(effectiveMode)
         }
     }
 
@@ -294,10 +313,6 @@ class SettingsActivity : AppCompatActivity() {
         switchVoiceWake.setOnCheckedChangeListener { _, isChecked ->
             lifecycleScope.launch {
                 SettingsPrefs.setVoiceWakeEnabled(this@SettingsActivity, isChecked)
-                MyAccessibilityService.getInstance()?.floatingWindowManager?.let { manager ->
-                    // 唤醒词的启动/停止由 FloatingWindowManager 自己管理
-                    // 这里只需要保存设置即可
-                }
             }
         }
     }
@@ -316,7 +331,7 @@ class SettingsActivity : AppCompatActivity() {
                 if (inputMethodEnabled) getColor(R.color.success) else getColor(R.color.error)
             )
 
-            val textInputMode = SettingsPrefs.textInputMode(this@SettingsActivity).first()
+            val textInputMode = resolveEffectiveTextInputMode()
             tvTextInputModeValue.text = textInputModeLabel(textInputMode)
 
             val audioPermission = ActivityCompat.checkSelfPermission(this@SettingsActivity, Manifest.permission.RECORD_AUDIO) ==

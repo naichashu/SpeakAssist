@@ -13,6 +13,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.core.graphics.toColorInt
+import java.util.Locale
 
 /**
  * 输入法服务
@@ -27,9 +28,26 @@ class MyInputMethodService : InputMethodService() {
             return ComponentName(context, MyInputMethodService::class.java)
         }
 
-        private fun imeIds(context: Context): Set<String> {
-            val component = imeComponent(context)
-            return setOf(component.flattenToString(), component.flattenToShortString())
+        private fun normalizeImeId(rawImeId: String, packageName: String): String {
+            val trimmed = rawImeId.trim()
+            val component = ComponentName.unflattenFromString(trimmed)
+            if (component != null) {
+                val className = if (component.className.startsWith(".")) {
+                    packageName + component.className
+                } else {
+                    component.className
+                }
+                return "${component.packageName}/$className"
+            }
+            return trimmed.lowercase(Locale.ROOT)
+        }
+
+        fun currentInputMethodId(context: Context): String? {
+            val currentImeId = Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.DEFAULT_INPUT_METHOD
+            ) ?: return null
+            return normalizeImeId(currentImeId, context.packageName)
         }
 
         fun isEnabled(context: Context): Boolean {
@@ -41,11 +59,10 @@ class MyInputMethodService : InputMethodService() {
         }
 
         fun isCurrentInputMethod(context: Context): Boolean {
-            val currentImeId = Settings.Secure.getString(
-                context.contentResolver,
-                Settings.Secure.DEFAULT_INPUT_METHOD
-            ) ?: return false
-            return currentImeId in imeIds(context)
+            return currentInputMethodId(context) == normalizeImeId(
+                imeComponent(context).flattenToString(),
+                context.packageName
+            )
         }
 
         /**
