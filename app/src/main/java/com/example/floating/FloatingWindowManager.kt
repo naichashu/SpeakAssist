@@ -40,6 +40,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
 
     private var circleView: CircleFloatingView? = null
     private var executionCardView: ExecutionCardView? = null
+    private var executionCancelChipView: ExecutionCancelChipView? = null
 
     private var isCircleEnabled = false
     private var isTaskRunning = false
@@ -166,6 +167,8 @@ class FloatingWindowManager(private val service: AccessibilityService) {
         circleView = null
         executionCardView?.destroy()
         executionCardView = null
+        executionCancelChipView?.destroy()
+        executionCancelChipView = null
         isTaskRunning = false
     }
 
@@ -249,13 +252,43 @@ class FloatingWindowManager(private val service: AccessibilityService) {
         }
     }
 
+    private fun showExecutionCancelChip() {
+        if (overlaysSuspended) return
+        handler.post {
+            executionCancelChipView?.destroy()
+            executionCancelChipView = ExecutionCancelChipView(service, windowManager, object : ExecutionCancelChipView.Listener {
+                override fun onCancelClicked() {
+                    ChatViewModel.requestCancel()
+                    executionCancelChipView?.setCancelling(true)
+                }
+            })
+            executionCancelChipView?.create()
+        }
+    }
+
+    private fun hideExecutionCancelChip() {
+        handler.post {
+            executionCancelChipView?.destroy()
+            executionCancelChipView = null
+        }
+    }
+
     suspend fun hideForScreenshot() {
         withContext(Dispatchers.Main.immediate) {
             executionCardView?.rootView?.let { view ->
                 try {
                     windowManager.removeView(view)
+                    executionCardView?.markShowing(false)
                 } catch (e: Exception) {
                     Log.w(TAG, "截屏前隐藏卡片失败", e)
+                }
+            }
+            executionCancelChipView?.rootView?.let { view ->
+                try {
+                    windowManager.removeView(view)
+                    executionCancelChipView?.markShowing(false)
+                } catch (e: Exception) {
+                    Log.w(TAG, "截屏前隐藏取消入口失败", e)
                 }
             }
         }
@@ -263,15 +296,26 @@ class FloatingWindowManager(private val service: AccessibilityService) {
 
     suspend fun restoreAfterScreenshot() {
         withContext(Dispatchers.Main.immediate) {
-            if (overlaysSuspended) return@withContext
-            val card = executionCardView ?: return@withContext
-            if (!card.isShowing()) return@withContext
-            card.rootView?.let { view ->
+            if (overlaysSuspended || !isTaskRunning) return@withContext
+            val card = executionCardView
+            val chip = executionCancelChipView
+            card?.takeIf { !it.isShowing() }?.rootView?.let { view ->
                 card.currentLayoutParams?.let { params ->
                     try {
                         windowManager.addView(view, params)
+                        card.markShowing(true)
                     } catch (e: Exception) {
                         Log.w(TAG, "截屏后恢复卡片失败", e)
+                    }
+                }
+            }
+            chip?.takeIf { !it.isShowing() }?.rootView?.let { view ->
+                chip.currentLayoutParams?.let { params ->
+                    try {
+                        windowManager.addView(view, params)
+                        chip.markShowing(true)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "截屏后恢复取消入口失败", e)
                     }
                 }
             }
@@ -328,12 +372,14 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                         isTaskRunning = true
                         hideCircle()
                         showExecutionCard(state.taskTitle)
+                        showExecutionCancelChip()
                     }
                     state.isRunning && state.currentStep > 0 -> {
                         executionCardView?.updateStep(state.currentStep, state.currentAction)
                     }
                     state.isCompleted && isTaskRunning -> {
                         isTaskRunning = false
+                        hideExecutionCancelChip()
                         val title = when {
                             state.isCancelled -> "任务已取消"
                             state.isSuccess -> "执行完成"

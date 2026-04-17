@@ -60,6 +60,8 @@
     <string name="text_input_mode_ime">输入法模拟（最强）</string>
     <string name="text_input_mode_ime_hint">当前模式需要切换到 SpeakAssist 输入法才能稳定输入</string>
     <string name="cancel">取消</string>
+    <string name="execution_cancel">取消</string>
+    <string name="execution_cancelling">取消中...</string>
 
     <string name="send_message">发送消息</string>
     <string name="settings">设置</string>

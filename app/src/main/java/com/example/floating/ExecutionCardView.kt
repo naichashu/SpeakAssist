@@ -76,7 +76,7 @@ class ExecutionCardView(
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            y = (48 * context.resources.displayMetrics.density).toInt() // 状态栏下方
+            y = (48 * context.resources.displayMetrics.density).toInt()
         }
 
         windowManager.addView(rootView, currentLayoutParams)
@@ -99,6 +99,10 @@ class ExecutionCardView(
 
     fun isShowing(): Boolean = isShowing
 
+    fun markShowing(showing: Boolean) {
+        isShowing = showing
+    }
+
     fun updateStep(step: Int, action: String) {
         handler.post {
             tvStepProgress?.text = "已执行第 $step 步"
@@ -111,7 +115,6 @@ class ExecutionCardView(
             tvTaskTitle?.text = title
             tvCurrentAction?.text = message
 
-            // 5秒后自动消失
             handler.postDelayed({
                 destroy()
             }, AUTO_HIDE_DELAY)
