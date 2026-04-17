@@ -282,6 +282,9 @@ class FloatingWindowManager(private val service: AccessibilityService) {
         scope.launch {
             SettingsPrefs.floatingWindowEnabled(service.applicationContext).collect { enabled ->
                 isCircleEnabled = enabled
+                if (!enabled && isVoiceWakeEnabled) {
+                    SettingsPrefs.setVoiceWakeEnabled(service.applicationContext, false)
+                }
                 if (enabled && !isTaskRunning) {
                     showCircle()
                 } else if (!enabled) {
@@ -291,6 +294,11 @@ class FloatingWindowManager(private val service: AccessibilityService) {
         }
         scope.launch {
             SettingsPrefs.voiceWakeEnabled(service.applicationContext).collectLatest { enabled ->
+                if (enabled && !isCircleEnabled) {
+                    Log.d(TAG, "悬浮窗未开启，回收语音唤醒开关状态")
+                    SettingsPrefs.setVoiceWakeEnabled(service.applicationContext, false)
+                    return@collectLatest
+                }
                 isVoiceWakeEnabled = enabled
                 Log.d(TAG, "语音唤醒开关状态: $enabled")
                 syncWakeWordListening()

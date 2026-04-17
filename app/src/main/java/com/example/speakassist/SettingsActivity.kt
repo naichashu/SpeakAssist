@@ -38,8 +38,12 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var tvAudioStatus: TextView
     private lateinit var tvOverlayStatus: TextView
     private lateinit var tvTextInputModeValue: TextView
+    private lateinit var switchFloatingWindow: SwitchMaterial
+    private lateinit var switchVoiceWake: SwitchMaterial
     private var pendingImeModeActivation = false
     private var pendingImeModeDeactivation = false
+    private var suppressSwitchCallbacks = false
+    private var activeToast: Toast? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +61,9 @@ class SettingsActivity : AppCompatActivity() {
         completePendingImeModeActivation()
         completePendingImeModeDeactivation()
         syncTextInputModeWithSystemState()
+        lifecycleScope.launch {
+            syncToggleStates()
+        }
         refreshPermissionStatus()
     }
 
@@ -79,6 +86,13 @@ class SettingsActivity : AppCompatActivity() {
         tvAudioStatus = findViewById(R.id.tvAudioStatus)
         tvOverlayStatus = findViewById(R.id.tvOverlayStatus)
         tvTextInputModeValue = findViewById(R.id.tvTextInputModeValue)
+        switchFloatingWindow = findViewById(R.id.switchFloatingWindow)
+        switchVoiceWake = findViewById(R.id.switchVoiceWake)
+    }
+
+    private fun showToast(message: CharSequence, duration: Int = Toast.LENGTH_SHORT) {
+        activeToast?.cancel()
+        activeToast = Toast.makeText(this, message, duration).also { it.show() }
     }
 
     private fun setupClickListeners() {
@@ -107,7 +121,7 @@ class SettingsActivity : AppCompatActivity() {
                     1001
                 )
             } else {
-                Toast.makeText(this, "录音权限已开启", Toast.LENGTH_SHORT).show()
+                showToast("录音权限已开启")
             }
         }
 
@@ -120,7 +134,7 @@ class SettingsActivity : AppCompatActivity() {
                     )
                     startActivity(intent)
                 } else {
-                    Toast.makeText(this, "悬浮窗权限已开启", Toast.LENGTH_SHORT).show()
+                    showToast("悬浮窗权限已开启")
                 }
             }
         }
@@ -132,7 +146,7 @@ class SettingsActivity : AppCompatActivity() {
                 .setPositiveButton("确定") { _, _ ->
                     lifecycleScope.launch {
                         AppDatabase.getInstance(applicationContext).taskSessionDao().deleteAll()
-                        Toast.makeText(this@SettingsActivity, "历史记录已清空", Toast.LENGTH_SHORT).show()
+                        showToast("历史记录已清空")
                     }
                 }
                 .setNegativeButton("取消", null)
@@ -169,29 +183,17 @@ class SettingsActivity : AppCompatActivity() {
                                 ImeActivationStatus.READY -> {
                                     pendingImeModeActivation = false
                                     applyTextInputMode(selectedMode)
-                                    Toast.makeText(
-                                        this@SettingsActivity,
-                                        "SpeakAssist 输入法已就绪",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    showToast("SpeakAssist 输入法已就绪")
                                 }
 
                                 ImeActivationStatus.NEED_ENABLE -> {
                                     pendingImeModeActivation = true
-                                    Toast.makeText(
-                                        this@SettingsActivity,
-                                        R.string.text_input_mode_ime_hint,
-                                        Toast.LENGTH_LONG
-                                    ).show()
+                                    showToast(getString(R.string.text_input_mode_ime_hint), Toast.LENGTH_LONG)
                                 }
 
                                 ImeActivationStatus.NEED_SWITCH -> {
                                     pendingImeModeActivation = true
-                                    Toast.makeText(
-                                        this@SettingsActivity,
-                                        "请选择 SpeakAssist 输入法以完成切换",
-                                        Toast.LENGTH_LONG
-                                    ).show()
+                                    showToast("请选择 SpeakAssist 输入法以完成切换", Toast.LENGTH_LONG)
                                 }
                             }
                         } else {
@@ -199,11 +201,7 @@ class SettingsActivity : AppCompatActivity() {
                             val prompted = ImeActivationHelper.promptSwitchAwayFromIme(this@SettingsActivity)
                             pendingImeModeDeactivation = prompted
                             if (prompted) {
-                                Toast.makeText(
-                                    this@SettingsActivity,
-                                    "请切回你的常用输入法",
-                                    Toast.LENGTH_LONG
-                                ).show()
+                                showToast("请切回你的常用输入法", Toast.LENGTH_LONG)
                             } else {
                                 applyTextInputMode(TextInputMode.DIRECT)
                             }
@@ -240,11 +238,7 @@ class SettingsActivity : AppCompatActivity() {
             if (ImeActivationHelper.getStatus(this@SettingsActivity) == ImeActivationStatus.READY) {
                 pendingImeModeActivation = false
                 applyTextInputMode(TextInputMode.IME_SIMULATION)
-                Toast.makeText(
-                    this@SettingsActivity,
-                    "已切换到 SpeakAssist 输入法",
-                    Toast.LENGTH_SHORT
-                ).show()
+                showToast("已切换到 SpeakAssist 输入法")
             }
         }
     }
@@ -257,11 +251,7 @@ class SettingsActivity : AppCompatActivity() {
             if (!MyInputMethodService.isCurrentInputMethod(this@SettingsActivity)) {
                 pendingImeModeDeactivation = false
                 applyTextInputMode(TextInputMode.DIRECT)
-                Toast.makeText(
-                    this@SettingsActivity,
-                    "已切回默认输入法模式",
-                    Toast.LENGTH_SHORT
-                ).show()
+                showToast("已切回默认输入法模式")
             }
         }
     }
@@ -281,36 +271,70 @@ class SettingsActivity : AppCompatActivity() {
         refreshPermissionStatus()
     }
 
-    private fun setupFloatingWindowSwitch() {
-        val switchFloatingWindow = findViewById<SwitchMaterial>(R.id.switchFloatingWindow)
+    private suspend fun syncToggleStates() {
+        val floatingEnabled = SettingsPrefs.floatingWindowEnabled(this@SettingsActivity).first()
+        val voiceWakeEnabled = SettingsPrefs.voiceWakeEnabled(this@SettingsActivity).first()
+        if (!floatingEnabled && voiceWakeEnabled) {
+            SettingsPrefs.setVoiceWakeEnabled(this@SettingsActivity, false)
+        }
+        updateSwitchStates(floatingEnabled, floatingEnabled && voiceWakeEnabled)
+    }
 
+    private fun updateSwitchStates(floatingEnabled: Boolean, voiceWakeEnabled: Boolean) {
+        suppressSwitchCallbacks = true
+        switchFloatingWindow.isChecked = floatingEnabled
+        switchVoiceWake.isChecked = voiceWakeEnabled
+        suppressSwitchCallbacks = false
+    }
+
+    private fun setupFloatingWindowSwitch() {
         lifecycleScope.launch {
-            val enabled = SettingsPrefs.floatingWindowEnabled(this@SettingsActivity).first()
-            switchFloatingWindow.isChecked = enabled
+            syncToggleStates()
         }
 
         switchFloatingWindow.setOnCheckedChangeListener { _, isChecked ->
+            if (suppressSwitchCallbacks) {
+                return@setOnCheckedChangeListener
+            }
             if (isChecked && !MyAccessibilityService.isServiceEnabled()) {
-                Toast.makeText(this, "请先开启无障碍服务，悬浮窗才能正常显示", Toast.LENGTH_LONG).show()
+                updateSwitchStates(false, false)
+                showToast("请先开启无障碍服务，悬浮窗才能正常显示", Toast.LENGTH_LONG)
+                lifecycleScope.launch {
+                    SettingsPrefs.setFloatingWindowEnabled(this@SettingsActivity, false)
+                    SettingsPrefs.setVoiceWakeEnabled(this@SettingsActivity, false)
+                }
+                return@setOnCheckedChangeListener
             }
             lifecycleScope.launch {
                 SettingsPrefs.setFloatingWindowEnabled(this@SettingsActivity, isChecked)
-                MyAccessibilityService.getInstance()?.floatingWindowManager?.let { manager ->
-                    if (isChecked) manager.showCircle() else manager.hideCircle()
+                if (isChecked) {
+                    MyAccessibilityService.getInstance()?.floatingWindowManager?.showCircle()
+                } else {
+                    SettingsPrefs.setVoiceWakeEnabled(this@SettingsActivity, false)
+                    updateSwitchStates(false, false)
+                    MyAccessibilityService.getInstance()?.floatingWindowManager?.hideCircle()
                 }
             }
         }
     }
 
     private fun setupVoiceWakeSwitch() {
-        val switchVoiceWake = findViewById<SwitchMaterial>(R.id.switchVoiceWake)
-
         lifecycleScope.launch {
-            val enabled = SettingsPrefs.voiceWakeEnabled(this@SettingsActivity).first()
-            switchVoiceWake.isChecked = enabled
+            syncToggleStates()
         }
 
         switchVoiceWake.setOnCheckedChangeListener { _, isChecked ->
+            if (suppressSwitchCallbacks) {
+                return@setOnCheckedChangeListener
+            }
+            if (isChecked && !switchFloatingWindow.isChecked) {
+                updateSwitchStates(false, false)
+                showToast("请先开启悬浮窗，再启用语音唤醒", Toast.LENGTH_LONG)
+                lifecycleScope.launch {
+                    SettingsPrefs.setVoiceWakeEnabled(this@SettingsActivity, false)
+                }
+                return@setOnCheckedChangeListener
+            }
             lifecycleScope.launch {
                 SettingsPrefs.setVoiceWakeEnabled(this@SettingsActivity, isChecked)
             }
