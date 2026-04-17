@@ -23,6 +23,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * 百度语音识别管理器
@@ -50,6 +51,7 @@ class BaiduSpeechManager(private val context: Context) {
     private var callback: Callback? = null
     private var isListening = false
     private var isRecording = false
+    private val sessionCounter = AtomicInteger(0)
 
     private var audioRecord: AudioRecord? = null
     private var recordingJob: Job? = null
@@ -76,7 +78,7 @@ class BaiduSpeechManager(private val context: Context) {
         this.callback = callback
     }
 
-    fun isListening(): Boolean = isListening
+    fun isListening(): Boolean = isListening || recordingJob?.isActive == true
 
     /**
      * 开始语音识别
@@ -84,7 +86,7 @@ class BaiduSpeechManager(private val context: Context) {
     fun start() {
         Log.d(TAG, "start() called")
 
-        if (isListening) {
+        if (isListening()) {
             Log.d(TAG, "Already listening")
             return
         }
@@ -99,9 +101,10 @@ class BaiduSpeechManager(private val context: Context) {
             return
         }
 
+        val sessionId = sessionCounter.incrementAndGet()
         recordingJob = CoroutineScope(Dispatchers.IO).launch {
             try {
-                startRecordingAndRecognize()
+                startRecordingAndRecognize(sessionId)
             } catch (e: CancellationException) {
                 Log.d(TAG, "识别已取消")
             } catch (e: Exception) {
@@ -127,6 +130,7 @@ class BaiduSpeechManager(private val context: Context) {
      */
     fun cancel() {
         Log.d(TAG, "cancel()")
+        sessionCounter.incrementAndGet()
         isListening = false
         isRecording = false
         stopRecordingAndCancel()
@@ -162,7 +166,11 @@ class BaiduSpeechManager(private val context: Context) {
     /**
      * 开始录音并识别
      */
-    private suspend fun startRecordingAndRecognize() {
+    private suspend fun startRecordingAndRecognize(sessionId: Int) {
+        if (!isSessionActive(sessionId)) {
+            return
+        }
+
         if (!hasRecordAudioPermission()) {
             withContext(Dispatchers.Main) {
                 callback?.onError("缺少录音权限")
@@ -182,6 +190,10 @@ class BaiduSpeechManager(private val context: Context) {
             }
         }
 
+        if (!isSessionActive(sessionId)) {
+            return
+        }
+
         // 初始化录音
         val bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
         Log.d(TAG, "录音缓冲区大小: $bufferSize")
@@ -191,6 +203,10 @@ class BaiduSpeechManager(private val context: Context) {
                 isListening = false
                 callback?.onError("无法获取录音缓冲区大小")
             }
+            return
+        }
+
+        if (!isSessionActive(sessionId)) {
             return
         }
 
@@ -209,6 +225,11 @@ class BaiduSpeechManager(private val context: Context) {
                 isListening = false
                 callback?.onError("缺少录音权限")
             }
+            return
+        }
+
+        if (!isSessionActive(sessionId)) {
+            stopRecordingAndCancel()
             return
         }
 
@@ -244,7 +265,7 @@ class BaiduSpeechManager(private val context: Context) {
         var hasSpeech = false
         var silenceStartTime = 0L
 
-        while (isRecording && System.currentTimeMillis() - startTime < maxDuration) {
+        while (isSessionActive(sessionId) && isRecording && System.currentTimeMillis() - startTime < maxDuration) {
             val read = audioRecord?.read(buffer, 0, buffer.size) ?: -1
             if (read > 0) {
                 audioData.write(buffer, 0, read)
@@ -297,7 +318,7 @@ class BaiduSpeechManager(private val context: Context) {
         Log.d(TAG, "录音结束，数据大小: ${audioData.size()}")
 
         val audioBytes = audioData.toByteArray()
-        if (!isListening) {
+        if (!isSessionActive(sessionId) || !isListening) {
             Log.d(TAG, "识别已取消，跳过结果回调")
             return
         }
@@ -314,6 +335,11 @@ class BaiduSpeechManager(private val context: Context) {
         // 发送到百度识别
         val audioBase64 = Base64.encodeToString(audioBytes, Base64.NO_WRAP)
         val result = recognize(audioBase64, audioBytes.size)
+
+        if (!isSessionActive(sessionId)) {
+            Log.d(TAG, "识别结果返回时会话已失效，丢弃结果")
+            return
+        }
 
         withContext(Dispatchers.Main) {
             isListening = false
@@ -410,5 +436,9 @@ class BaiduSpeechManager(private val context: Context) {
             context,
             Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun isSessionActive(sessionId: Int): Boolean {
+        return sessionCounter.get() == sessionId && recordingJob?.isActive == true
     }
 }
