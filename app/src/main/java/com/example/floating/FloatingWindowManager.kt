@@ -74,6 +74,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                 }
                 handler.postDelayed({
                     circleView?.collapseToIdle()
+                    syncWakeWordListening()
                 }, ERROR_DISPLAY_DURATION)
             }
 
@@ -177,9 +178,16 @@ class FloatingWindowManager(private val service: AccessibilityService) {
             circleView?.destroy()
             circleView = CircleFloatingView(service, windowManager, object : CircleFloatingView.Listener {
                 override fun onCircleClicked() {
-                    if (!speechManager.isListening()) {
+                    if (speechManager.isListening()) {
+                        cancelSpeechRecognition()
+                    } else {
+                        stopWakeWordListening()
                         speechManager.start()
                     }
+                }
+
+                override fun onExpandedCancelClicked() {
+                    cancelSpeechRecognition()
                 }
             })
             circleView?.create()
@@ -198,12 +206,18 @@ class FloatingWindowManager(private val service: AccessibilityService) {
         }
     }
 
+    private fun cancelSpeechRecognition() {
+        speechManager.cancel()
+        circleView?.collapseToIdle()
+        syncWakeWordListening()
+    }
+
     private fun startWakeWordListening() {
         if (!isVoiceWakeEnabled) {
             Log.d(TAG, "语音唤醒开关关闭，跳过启动监听")
             return
         }
-        if (overlaysSuspended || isTaskRunning || circleView == null) {
+        if (overlaysSuspended || isTaskRunning || circleView == null || speechManager.isListening()) {
             Log.d(TAG, "当前场景不允许启动唤醒监听")
             return
         }
@@ -219,7 +233,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
     }
 
     private fun syncWakeWordListening() {
-        if (isVoiceWakeEnabled && isCircleEnabled && !isTaskRunning && !overlaysSuspended && circleView != null) {
+        if (isVoiceWakeEnabled && isCircleEnabled && !isTaskRunning && !overlaysSuspended && circleView != null && !speechManager.isListening()) {
             startWakeWordListening()
         } else {
             stopWakeWordListening()

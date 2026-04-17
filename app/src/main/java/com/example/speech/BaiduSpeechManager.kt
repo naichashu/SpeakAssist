@@ -1,11 +1,15 @@
 package com.example.speech
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.util.Base64
 import android.util.Log
+import androidx.core.app.ActivityCompat
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -90,12 +94,16 @@ class BaiduSpeechManager(private val context: Context) {
             return
         }
 
-        isListening = true
-        callback?.onReady()
+        if (!hasRecordAudioPermission()) {
+            callback?.onError("缺少录音权限")
+            return
+        }
 
         recordingJob = CoroutineScope(Dispatchers.IO).launch {
             try {
                 startRecordingAndRecognize()
+            } catch (e: CancellationException) {
+                Log.d(TAG, "识别已取消")
             } catch (e: Exception) {
                 Log.e(TAG, "识别失败", e)
                 withContext(Dispatchers.Main) {
@@ -146,6 +154,7 @@ class BaiduSpeechManager(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "停止录音失败", e)
         }
+        isListening = false
         recordingJob?.cancel()
         recordingJob = null
     }
@@ -154,6 +163,13 @@ class BaiduSpeechManager(private val context: Context) {
      * 开始录音并识别
      */
     private suspend fun startRecordingAndRecognize() {
+        if (!hasRecordAudioPermission()) {
+            withContext(Dispatchers.Main) {
+                callback?.onError("缺少录音权限")
+            }
+            return
+        }
+
         // 获取 access token
         if (accessToken == null) {
             accessToken = getAccessToken()
@@ -206,7 +222,11 @@ class BaiduSpeechManager(private val context: Context) {
 
         // 开始录音
         audioRecord?.startRecording()
+        isListening = true
         isRecording = true
+        withContext(Dispatchers.Main) {
+            callback?.onReady()
+        }
         Log.d(TAG, "开始录音...")
 
         // 录音数据
@@ -276,8 +296,22 @@ class BaiduSpeechManager(private val context: Context) {
 
         Log.d(TAG, "录音结束，数据大小: ${audioData.size()}")
 
-        // 发送到百度识别
         val audioBytes = audioData.toByteArray()
+        if (!isListening) {
+            Log.d(TAG, "识别已取消，跳过结果回调")
+            return
+        }
+
+        if (audioBytes.isEmpty()) {
+            withContext(Dispatchers.Main) {
+                isListening = false
+                callback?.onEnd()
+                callback?.onError("未识别到语音")
+            }
+            return
+        }
+
+        // 发送到百度识别
         val audioBase64 = Base64.encodeToString(audioBytes, Base64.NO_WRAP)
         val result = recognize(audioBase64, audioBytes.size)
 
@@ -369,5 +403,12 @@ class BaiduSpeechManager(private val context: Context) {
             Log.e(TAG, "识别失败", e)
             null
         }
+    }
+
+    private fun hasRecordAudioPermission(): Boolean {
+        return ActivityCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
     }
 }

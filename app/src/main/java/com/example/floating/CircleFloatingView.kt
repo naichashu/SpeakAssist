@@ -38,6 +38,7 @@ class CircleFloatingView(
 
     interface Listener {
         fun onCircleClicked()
+        fun onExpandedCancelClicked()
     }
 
     enum class State {
@@ -51,6 +52,7 @@ class CircleFloatingView(
 
     private var circleContainer: FrameLayout? = null
     private var expandedContainer: LinearLayout? = null
+    private var expandedLogoView: ImageView? = null
     private var tvStatus: TextView? = null
 
     private var currentState = State.HIDDEN
@@ -78,6 +80,7 @@ class CircleFloatingView(
 
         circleContainer = rootView?.findViewById(R.id.circleContainer)
         expandedContainer = rootView?.findViewById(R.id.expandedContainer)
+        expandedLogoView = rootView?.findViewById(R.id.ivExpandedLogo)
         tvStatus = rootView?.findViewById(R.id.tvStatus)
         tvStatus?.isSelected = true
 
@@ -208,6 +211,11 @@ class CircleFloatingView(
                     true
                 }
                 else -> false
+            }
+        }
+        expandedLogoView?.setOnClickListener {
+            if (currentState == State.LISTENING) {
+                listener.onExpandedCancelClicked()
             }
         }
     }
