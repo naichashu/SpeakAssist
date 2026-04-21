@@ -58,6 +58,11 @@
             android:parentActivityName=".MainActivity" />
 
         <activity
+            android:name=".ApiConfigActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity" />
+
+        <activity
             android:name=".AboutActivity"
             android:exported="false"
             android:parentActivityName=".MainActivity" />

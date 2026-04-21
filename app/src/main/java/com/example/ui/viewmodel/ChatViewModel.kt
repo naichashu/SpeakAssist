@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.AppDatabase
+import com.example.data.SettingsPrefs
 import com.example.data.entity.TaskSession
 import com.example.data.entity.TaskStep
 import com.example.network.ModelClient
@@ -19,6 +20,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
@@ -73,11 +75,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            Log.d(TAG, "初始化模型客户端")
-            val baseUrl = "https://open.bigmodel.cn/api/paas/v4"
-            val apiKey = "3400b28973dbc4f62558def1f2053b96.kiUwPwhwyLvULvWt"
-            modelClient = ModelClient(getApplication(), baseUrl, apiKey)
-
             MyAccessibilityService.getInstance()?.let { service ->
                 actionExecutor = ActionExecutor(service)
             }
@@ -97,6 +94,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         )
         // StateFlow 合并多个快速写入，delay 让观察者先收到 running 状态
         delay(50)
+
+        // API Key 未配置：直接失败，引导用户去 API 配置页填写
+        val apiKey = SettingsPrefs.zhipuApiKey(getApplication()).first()
+        if (apiKey.isBlank()) {
+            return failWithoutSession("请先在侧栏「API 配置」填写智谱 AutoGLM API Key")
+        }
+        // 每次任务都用最新 Key 重建 client，避免用户在配置页改了 Key 后 ViewModel 还用旧的
+        modelClient = ModelClient(
+            getApplication(),
+            "https://open.bigmodel.cn/api/paas/v4",
+            apiKey
+        )
 
         AppRegister.initialize(getApplication()) // 初始化注册，以确保最新的映射配置被加载
         val accessibilityService = MyAccessibilityService.getInstance()

@@ -13,6 +13,12 @@
     <!-- 分割线 -->
     <item android:title="">
         <menu>
+            <!-- API 配置：每个用户自带智谱/百度凭据 -->
+            <item
+                android:id="@+id/nav_api_config"
+                android:icon="@android:drawable/ic_menu_manage"
+                android:title="@string/nav_api_config" />
+
             <!-- 设置 -->
             <item
                 android:id="@+id/nav_settings"

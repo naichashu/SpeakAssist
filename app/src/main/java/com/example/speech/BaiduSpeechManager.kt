@@ -92,7 +92,7 @@ class BaiduSpeechManager(private val context: Context) {
         }
 
         if (apiKey.isEmpty() || secretKey.isEmpty()) {
-            callback?.onError("未配置 API Key")
+            callback?.onError("请先在侧栏「API 配置」填入百度 Key")
             return
         }
 

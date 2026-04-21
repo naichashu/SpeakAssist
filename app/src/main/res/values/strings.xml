@@ -80,6 +80,28 @@
     <string name="nav_history">历史记录</string>
     <string name="nav_settings">设置</string>
     <string name="nav_about">关于</string>
+    <string name="nav_api_config">API 配置</string>
+
+    <!-- ApiConfigActivity -->
+    <string name="api_config_hint">本应用需要智谱 AutoGLM（任务理解）和百度语音识别（命令收音）两组 API 凭据。请在各自控制台创建应用并填入下方。凭据仅保存在本机，不会上传。支持通过右上角菜单导出/导入配置，文件含明文凭据请妥善保管。</string>
+    <string name="api_config_zhipu_section">智谱 AutoGLM</string>
+    <string name="api_config_zhipu_desc">前往 open.bigmodel.cn 控制台创建 API Key，粘贴到下方。</string>
+    <string name="api_config_zhipu_hint">API Key（形如 xxx.yyy）</string>
+    <string name="api_config_baidu_section">百度语音识别</string>
+    <string name="api_config_baidu_desc">前往 console.bce.baidu.com 语音技术控制台，创建应用后把 API Key 和 Secret Key 粘贴到下方。</string>
+    <string name="api_config_baidu_api_hint">API Key</string>
+    <string name="api_config_baidu_secret_hint">Secret Key</string>
+    <string name="api_config_save">保存</string>
+    <string name="api_config_saved">已保存</string>
+    <string name="api_config_baidu_incomplete">百度的 API Key 和 Secret Key 必须同时填写或同时留空</string>
+    <string name="api_config_export">导出配置</string>
+    <string name="api_config_import">导入配置</string>
+    <string name="api_config_exported">已导出到所选位置</string>
+    <string name="api_config_imported">已导入并保存</string>
+    <string name="api_config_import_format_error">文件格式不正确，确认是 SpeakAssist 导出的 JSON</string>
+    <string name="api_config_import_version_error">版本不兼容</string>
+    <string name="api_config_io_error">读写失败：%1$s</string>
+    <string name="api_config_voice_needs_baidu">请先在「API 配置」填入百度 Key</string>
     <string name="menu_description">菜单</string>
 
     <string name="history_empty">暂无历史记录</string>

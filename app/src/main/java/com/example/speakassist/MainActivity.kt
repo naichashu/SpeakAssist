@@ -33,6 +33,7 @@ import com.example.input.TextInputMode
 import com.example.service.MyAccessibilityService
 import com.example.service.MyInputMethodService
 import com.example.speech.BaiduSpeechConfig
+import com.example.speech.BaiduSpeechCredentials
 import com.example.speech.BaiduSpeechManager
 import com.example.ui.adapter.ChatMessageAdapter
 import com.example.ui.viewmodel.ChatViewModel
@@ -73,6 +74,11 @@ class MainActivity : AppCompatActivity() {
     // ==================== 业务逻辑 ====================
     private lateinit var speechManager: BaiduSpeechManager  // 百度语音管理器
     private lateinit var chatViewModel: ChatViewModel       // 聊天业务逻辑
+
+    // 最新的百度凭据快照：credentialsFlow collect 时写入，语音按钮点击时同步读。
+    // @Volatile 因为 UI 线程读、Flow collect 也在 UI 线程但为将来防御。
+    @Volatile
+    private var latestBaiduCredentials: BaiduSpeechCredentials? = null
 
     // ==================== 权限请求 ====================
     // 录音权限请求回调
@@ -166,6 +172,9 @@ class MainActivity : AppCompatActivity() {
             when (menuItem.itemId) {
                 R.id.nav_history -> {
                     startActivity(Intent(this, HistoryActivity::class.java))
+                }
+                R.id.nav_api_config -> {
+                    startActivity(Intent(this, ApiConfigActivity::class.java))
                 }
                 R.id.nav_settings -> {
                     // 跳转到设置页面
@@ -265,8 +274,13 @@ class MainActivity : AppCompatActivity() {
      */
     private fun setupSpeechManager() {
         speechManager = BaiduSpeechManager(this)
-        val credentials = BaiduSpeechConfig.credentials()
-        speechManager.setCredentials(credentials.apiKey, credentials.secretKey)
+        // 百度凭据来自 DataStore（用户在 API 配置页填写），用 Flow 观察以便用户保存后立即生效
+        lifecycleScope.launch {
+            BaiduSpeechConfig.credentialsFlow(this@MainActivity).collect { credentials ->
+                latestBaiduCredentials = credentials
+                speechManager.setCredentials(credentials.apiKey, credentials.secretKey)
+            }
+        }
 
         speechManager.setCallback(object : BaiduSpeechManager.Callback {
             override fun onReady() {
@@ -309,6 +323,12 @@ class MainActivity : AppCompatActivity() {
                 speechManager.stop()
                 updateVoiceButtonState(false)
             } else {
+                // 未配置百度凭据时直接引导去 API 配置页，而不是走到 speechManager 内部报错
+                if (latestBaiduCredentials?.isValid != true) {
+                    Toast.makeText(this, R.string.api_config_voice_needs_baidu, Toast.LENGTH_LONG).show()
+                    startActivity(Intent(this, ApiConfigActivity::class.java))
+                    return@setOnClickListener
+                }
                 checkPermissionAndStartSpeech()
             }
         }

@@ -51,8 +51,6 @@ class FloatingWindowManager(private val service: AccessibilityService) {
     private var wakeWordManager: WakeWordListeningManager? = null
 
     fun init() {
-        val credentials = BaiduSpeechConfig.credentials()
-        speechManager.setCredentials(credentials.apiKey, credentials.secretKey)
         speechManager.setCallback(object : BaiduSpeechManager.Callback {
             override fun onReady() {
                 handler.post {
@@ -100,7 +98,20 @@ class FloatingWindowManager(private val service: AccessibilityService) {
         initWakeWordManager()
         observeSettings()
         observeExecutionState()
+        observeBaiduCredentials()
         Log.d(TAG, "FloatingWindowManager 已初始化")
+    }
+
+    /**
+     * 观察百度凭据变化，用户在 API 配置页保存后实时下发给 speechManager。
+     */
+    private fun observeBaiduCredentials() {
+        scope.launch {
+            BaiduSpeechConfig.credentialsFlow(service.applicationContext).collect { credentials ->
+                speechManager.setCredentials(credentials.apiKey, credentials.secretKey)
+                Log.d(TAG, "百度凭据已更新，valid=${credentials.isValid}")
+            }
+        }
     }
 
     private fun initWakeWordManager() {
