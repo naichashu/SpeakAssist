@@ -61,6 +61,18 @@ class FloatingWindowManager(private val service: AccessibilityService) {
             }
 
             override fun onResult(text: String) {
+                if (text.isBlank()) {
+                    // 防御：Baidu 理论上已经把空结果转成 onError，这里兜底避免空文本派发任务
+                    Log.w(TAG, "onResult 收到空文本，按错误处理")
+                    handler.post {
+                        circleView?.showRecognitionError("未识别到语音")
+                    }
+                    handler.postDelayed({
+                        circleView?.collapseToIdle()
+                        syncWakeWordListening()
+                    }, ERROR_DISPLAY_DURATION)
+                    return
+                }
                 handler.post {
                     circleView?.showRecognitionResult(text)
                 }
@@ -97,30 +109,12 @@ class FloatingWindowManager(private val service: AccessibilityService) {
             wakeWordManager?.listener = object : WakeWordListeningManager.Listener {
                 override fun onWakeWordDetected() {
                     handler.post {
-                        Log.d(TAG, "唤醒词检测到")
+                        Log.d(TAG, "唤醒词检测到，切换到 Baidu 做命令识别")
+                        // Vosk 检到唤醒词后已 break 循环；这里再显式 stop 一次，确保麦克风被释放后再给 Baidu
+                        stopWakeWordListening()
                         circleView?.showListening()
+                        speechManager.start()
                     }
-                }
-
-                override fun onCommandRecognized(text: String) {
-                    handler.post {
-                        Log.d(TAG, "唤醒词命令识别结果: $text")
-                        circleView?.showRecognitionResult(text)
-                    }
-                    handler.postDelayed({
-                        circleView?.collapseToIdle()
-                        onVoiceResult(text)
-                    }, RESULT_DISPLAY_DURATION)
-                }
-
-                override fun onCommandIgnored(reason: String) {
-                    handler.post {
-                        Log.d(TAG, "唤醒词命令忽略: $reason")
-                        circleView?.showRecognitionError(reason)
-                    }
-                    handler.postDelayed({
-                        circleView?.collapseToIdle()
-                    }, ERROR_DISPLAY_DURATION)
                 }
 
                 override fun onError(message: String) {

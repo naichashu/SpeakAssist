@@ -149,24 +149,28 @@ class VoskRecognizerManager(private val context: Context) {
 
     /**
      * 创建 Recognizer（每次识别任务创建一个）
-     * @return Recognizer 实例，创建失败返回 null
+     * @param grammar 可选的 JSON 短语列表（如 `["小 噜 小 噜","[unk]"]`），传入后识别器只会输出列表内短语或 [unk]，
+     *                适合关键词识别。仅 lookahead model（vosk-model-small-cn-0.22 符合）支持；传 null 走默认全词表识别。
      */
-    fun createRecognizer(): Recognizer? {
+    fun createRecognizer(grammar: String? = null): Recognizer? {
         val m = model ?: run {
             Log.e(TAG, "模型未加载，无法创建 Recognizer")
             return null
         }
 
-        // 如果已有 recognizer，先关闭
         recognizer?.close()
 
         return try {
-            Recognizer(m, SAMPLE_RATE).also {
-                recognizer = it
-                Log.d(TAG, "Recognizer 创建成功")
+            val rec = if (grammar != null) {
+                Recognizer(m, SAMPLE_RATE, grammar)
+            } else {
+                Recognizer(m, SAMPLE_RATE)
             }
+            recognizer = rec
+            Log.d(TAG, "Recognizer 创建成功 grammar=${grammar != null}")
+            rec
         } catch (e: Exception) {
-            Log.e(TAG, "创建 Recognizer 失败", e)
+            Log.e(TAG, "创建 Recognizer 失败 grammar=${grammar != null}", e)
             null
         }
     }

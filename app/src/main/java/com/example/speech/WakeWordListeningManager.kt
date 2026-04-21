@@ -27,10 +27,8 @@ import java.util.Locale
  *
  * 核心功能：
  * 1. 持续从麦克风采集音频
- * 2. 送入 Vosk 进行实时识别
- * 3. 检测是否说了唤醒词（如"小噜小噜"）
- * 4. 检测到唤醒词后，等待用户说出命令
- * 5. 命令说完后（静音检测），识别并回调结果
+ * 2. 送入 Vosk（grammar 约束到唤醒词白名单）做关键词识别
+ * 3. 检测到唤醒词即触发 onWakeWordDetected 并退出循环，释放麦克风给上层做命令识别
  *
  * 使用方式：
  * 1. init() 初始化并加载模型
@@ -61,24 +59,21 @@ class WakeWordListeningManager(private val context: Context) {
 
         // 静音检测参数
         private const val SILENCE_THRESHOLD = 500
-        private const val SILENCE_DURATION_MS = 1500L
-        private const val MIN_SPEECH_DURATION_MS = 300L
         private const val MAX_LISTENING_MS = 15000L
 
-        // 命令识别阶段最大时长
-        private const val MAX_COMMAND_MS = 10000L
-
-        // 唤醒词的通用形态：四字 "小X小X"（同字叠词），用于兜底 Vosk 把唤醒词识别成
-        // 词表外的变体（例如 "小禄小禄"、"小芦小芦"）时仍能识别为唤醒词并从命令里剥离。
-        private val WAKE_WORD_PATTERN = Regex("小(.)小\\1")
-        private val WAKE_WORD_ONLY_PATTERN = Regex("^小(.)小\\1$")
+        /**
+         * 生成 Vosk grammar JSON：形如 `["小 噜 小 噜","小 陆 小 陆",...,"[unk]"]`。
+         * 字粒度之间用空格分隔（小模型 words.txt 按字切分）。`[unk]` 让识别器对词表外声音输出占位而非乱猜。
+         */
+        private fun buildWakeWordGrammar(): String {
+            val phrases = WAKE_WORDS.map { it.toCharArray().joinToString(" ") } + "[unk]"
+            return phrases.joinToString(prefix = "[", separator = ",", postfix = "]") { "\"$it\"" }
+        }
     }
 
     enum class State {
         IDLE,
         WAKE_DETECTED,
-        LISTENING_COMMAND,
-        COMPLETED,
         ERROR
     }
 
@@ -94,15 +89,10 @@ class WakeWordListeningManager(private val context: Context) {
     var listener: Listener? = null
 
     private var isInitialized = false
-    private var speechStartTime = 0L
-    private var silenceStartTime = 0L
     private var hasSpeechDetected = false
 
     interface Listener {
         fun onWakeWordDetected()
-        fun onCommandRecognized(text: String)
-        /** 命令阶段结束但没有有效输出（超时/空白/只有唤醒词），用于让上层收回"正在听需求"视觉 */
-        fun onCommandIgnored(reason: String) = Unit
         fun onError(message: String)
         fun onStateChanged(state: State)
     }
@@ -180,8 +170,6 @@ class WakeWordListeningManager(private val context: Context) {
     }
 
     private fun resetState() {
-        speechStartTime = 0L
-        silenceStartTime = 0L
         hasSpeechDetected = false
     }
 
@@ -196,7 +184,7 @@ class WakeWordListeningManager(private val context: Context) {
     }
 
     private suspend fun startWakeWordLoop() {
-        val recognizer = voskManager?.createRecognizer() ?: run {
+        val recognizer = voskManager?.createRecognizer(buildWakeWordGrammar()) ?: run {
             handler.post { listener?.onError("无法创建语音识别器") }
             return
         }
@@ -243,7 +231,7 @@ class WakeWordListeningManager(private val context: Context) {
         updateState(State.IDLE)
 
         try {
-            while (audioRecord?.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
+            loop@ while (audioRecord?.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
                 val read = audioRecord?.read(buffer, 0, buffer.size) ?: -1
                 if (read <= 0) {
                     delay(10)
@@ -254,88 +242,27 @@ class WakeWordListeningManager(private val context: Context) {
                 val partialResult = voskManager?.getPartialResult().orEmpty()
                 val rms = calculateRms(buffer, read)
 
-                if (_state.value == State.IDLE) {
-                    if (rms > SILENCE_THRESHOLD) {
-                        speechStartTime = System.currentTimeMillis()
-                        hasSpeechDetected = true
-                        listeningStartTime = System.currentTimeMillis()
-                    }
+                if (rms > SILENCE_THRESHOLD) {
+                    hasSpeechDetected = true
+                    listeningStartTime = System.currentTimeMillis()
+                }
 
-                    if (partialResult.isNotBlank()) {
-                        Log.d(TAG, "唤醒检测 partial: $partialResult")
-                        if (containsWakeWord(partialResult)) {
-                            Log.i(TAG, "唤醒词检测到: $partialResult")
-                            recognizer.reset()
-                            hasSpeechDetected = false
-                            silenceStartTime = 0L
-                            listeningStartTime = System.currentTimeMillis()
-
-                            handler.post { listener?.onWakeWordDetected() }
-                            updateState(State.WAKE_DETECTED)
-                        }
-                    }
-
-                    if (hasSpeechDetected && System.currentTimeMillis() - listeningStartTime > MAX_LISTENING_MS) {
-                        Log.d(TAG, "唤醒词检测超时，重置识别器")
+                if (partialResult.isNotBlank()) {
+                    Log.d(TAG, "唤醒检测 partial: $partialResult")
+                    if (containsWakeWord(partialResult)) {
+                        Log.i(TAG, "唤醒词检测到: $partialResult")
                         recognizer.reset()
-                        hasSpeechDetected = false
-                        listeningStartTime = System.currentTimeMillis()
+                        handler.post { listener?.onWakeWordDetected() }
+                        updateState(State.WAKE_DETECTED)
+                        break@loop
                     }
-                } else if (_state.value == State.WAKE_DETECTED) {
-                    val elapsed = System.currentTimeMillis() - listeningStartTime
+                }
 
-                    if (rms > SILENCE_THRESHOLD) {
-                        hasSpeechDetected = true
-                        silenceStartTime = 0L
-                        speechStartTime = System.currentTimeMillis()
-                        if (partialResult.isNotBlank()) {
-                            Log.d(TAG, "命令识别 partial: $partialResult")
-                        }
-                    } else if (hasSpeechDetected) {
-                        if (silenceStartTime == 0L) {
-                            silenceStartTime = System.currentTimeMillis()
-                        }
-
-                        val silenceDuration = System.currentTimeMillis() - silenceStartTime
-                        val speechDuration = speechStartTime - listeningStartTime
-
-                        if (speechDuration >= MIN_SPEECH_DURATION_MS && silenceDuration >= SILENCE_DURATION_MS) {
-                            Log.d(TAG, "检测到静音，命令输入结束")
-                            val finalResult = voskManager?.getFinalResult().orEmpty()
-                            Log.d(TAG, "命令识别 final: $finalResult")
-                            recognizer.reset()
-
-                            if (finalResult.isNotBlank()) {
-                                val command = removeWakeWord(finalResult)
-                                if (shouldDispatchCommand(finalResult, command)) {
-                                    handler.post {
-                                        listener?.onCommandRecognized(command)
-                                    }
-                                } else {
-                                    Log.d(TAG, "识别结果仅包含唤醒词，忽略命令派发: raw=$finalResult, command=$command")
-                                    handler.post { listener?.onCommandIgnored("未识别到有效命令") }
-                                }
-                            } else {
-                                Log.d(TAG, "未识别到命令内容")
-                                handler.post { listener?.onCommandIgnored("未识别到命令") }
-                            }
-
-                            hasSpeechDetected = false
-                            silenceStartTime = 0L
-                            listeningStartTime = System.currentTimeMillis()
-                            updateState(State.IDLE)
-                        }
-                    }
-
-                    if (elapsed > MAX_COMMAND_MS) {
-                        Log.d(TAG, "命令收音超时，重置")
-                        recognizer.reset()
-                        hasSpeechDetected = false
-                        silenceStartTime = 0L
-                        listeningStartTime = System.currentTimeMillis()
-                        updateState(State.IDLE)
-                        handler.post { listener?.onCommandIgnored("未识别到命令") }
-                    }
+                if (hasSpeechDetected && System.currentTimeMillis() - listeningStartTime > MAX_LISTENING_MS) {
+                    Log.d(TAG, "唤醒词检测超时，重置识别器")
+                    recognizer.reset()
+                    hasSpeechDetected = false
+                    listeningStartTime = System.currentTimeMillis()
                 }
 
                 delay(10)
@@ -348,7 +275,9 @@ class WakeWordListeningManager(private val context: Context) {
         }
 
         stopRecording()
-        updateState(State.IDLE)
+        // 状态不在此处复位为 IDLE：
+        // - 若是唤醒词检出 break 出来，外层上层会收到 onWakeWordDetected，随后调 stopListening 走 IDLE
+        // - 若是 stopListening 取消，stopListening 自己会把状态置为 IDLE
     }
 
     private fun stopRecording() {
@@ -397,46 +326,5 @@ class WakeWordListeningManager(private val context: Context) {
         }
 
         return false
-    }
-
-    private fun removeWakeWord(text: String): String {
-        var result = text
-        for (wakeWord in WAKE_WORDS) {
-            result = result.replace(wakeWord, "", ignoreCase = true)
-        }
-        // 再剥离词表外的 "小X小X" 变体（Vosk 声学相近字的转写），防止被当命令派发
-        result = result.replace(WAKE_WORD_PATTERN, "")
-        return result.replace(Regex("\\s+"), " ").trim()
-    }
-
-    private fun shouldDispatchCommand(rawText: String, command: String): Boolean {
-        if (command.isBlank()) {
-            return false
-        }
-
-        val normalizedRaw = normalizeForWakeWordMatch(rawText)
-        val normalizedCommand = normalizeForWakeWordMatch(command)
-        if (normalizedCommand.isEmpty()) {
-            return false
-        }
-
-        return normalizedRaw != normalizedCommand || !isWakeWordOnly(normalizedRaw)
-    }
-
-    private fun isWakeWordOnly(normalizedText: String): Boolean {
-        if (normalizedText.isBlank()) {
-            return false
-        }
-        if (WAKE_WORD_ONLY_PATTERN.matches(normalizedText)) {
-            return true
-        }
-        return WAKE_WORDS.any { normalizeForWakeWordMatch(it) == normalizedText }
-    }
-
-    private fun normalizeForWakeWordMatch(text: String): String {
-        return text
-            .lowercase(Locale.getDefault())
-            .replace(Regex("[\\s\\p{Punct}]"), "")
-            .trim()
     }
 }

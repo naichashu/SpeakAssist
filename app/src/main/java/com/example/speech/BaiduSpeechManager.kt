@@ -413,7 +413,10 @@ class BaiduSpeechManager(private val context: Context) {
                     if (errNo == 0) {
                         val resultArray = json.optJSONArray("result")
                         if (resultArray != null && resultArray.length() > 0) {
-                            resultArray.getString(0)
+                            val text = resultArray.getString(0)
+                            // 百度偶尔会返回 err_no=0 + result:[""]（音频里只有噪声/哼声）
+                            // 此时要当作识别失败，避免上层把空文本当命令派发
+                            if (text.isNotBlank()) text else null
                         } else null
                     } else {
                         val errMsg = json.optString("err_msg", "未知错误")
