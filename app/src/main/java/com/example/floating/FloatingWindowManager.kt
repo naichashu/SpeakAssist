@@ -344,6 +344,47 @@ class FloatingWindowManager(private val service: AccessibilityService) {
         }
     }
 
+    /**
+     * 手势前临时摘下取消芯片。
+     *
+     * 芯片默认落在屏幕右上角（TOP|END, y=56dp），而百度/微信/小红书等应用的"搜索/确定"
+     * 按钮也在同一坐标带；AccessibilityService.dispatchGesture 模拟的是真实触摸、走
+     * WindowManager 的窗口栈，因此模型让 AI 点搜索时会被这个 NOT_TOUCH_MODAL 但可
+     * 触的芯片吃掉，落到取消上。
+     *
+     * 只动芯片不动执行卡片：卡片本身是 FLAG_NOT_TOUCHABLE，不吃点击。
+     */
+    suspend fun detachCancelChipForGesture() {
+        withContext(Dispatchers.Main.immediate) {
+            val chip = executionCancelChipView ?: return@withContext
+            if (!chip.isShowing()) return@withContext
+            chip.rootView?.let { view ->
+                try {
+                    windowManager.removeView(view)
+                    chip.markShowing(false)
+                } catch (e: Exception) {
+                    Log.w(TAG, "手势前摘除取消入口失败", e)
+                }
+            }
+        }
+    }
+
+    suspend fun reattachCancelChipAfterGesture() {
+        withContext(Dispatchers.Main.immediate) {
+            if (overlaysSuspended || !isTaskRunning) return@withContext
+            val chip = executionCancelChipView ?: return@withContext
+            if (chip.isShowing()) return@withContext
+            val view = chip.rootView ?: return@withContext
+            val params = chip.currentLayoutParams ?: return@withContext
+            try {
+                windowManager.addView(view, params)
+                chip.markShowing(true)
+            } catch (e: Exception) {
+                Log.w(TAG, "手势后恢复取消入口失败", e)
+            }
+        }
+    }
+
     private fun onVoiceResult(text: String) {
         Log.d(TAG, "语音识别结果：$text")
         scope.launch {

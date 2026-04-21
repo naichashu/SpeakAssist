@@ -372,7 +372,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
     /**
      * 点击事件
      */
-    private fun tap(actionObj: JsonObject, screenWidth: Int, screenHeight: Int): ActionResult {
+    private suspend fun tap(actionObj: JsonObject, screenWidth: Int, screenHeight: Int): ActionResult {
         val element = actionObj.get("element")
         Log.d(TAG, "点击事件位置: $element, 屏幕尺寸: ${screenWidth}x${screenHeight}")
         if (element.isJsonArray) {
@@ -473,7 +473,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
      * @param screenWidth 屏幕宽度像素
      * @param screenHeight 屏幕高度像素
      */
-    private fun swipe(actionObj: JsonObject, screenWidth: Int, screenHeight: Int): ActionResult {
+    private suspend fun swipe(actionObj: JsonObject, screenWidth: Int, screenHeight: Int): ActionResult {
         val element = actionObj.get("element")
         val start = actionObj.get("start")
         val end = actionObj.get("end")
@@ -663,7 +663,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
      * @param screenWidth 屏幕宽度像素
      * @param screenHeight 屏幕高度像素
      */
-    private fun longPress(actionObj: JsonObject, screenWidth: Int, screenHeight: Int): ActionResult {
+    private suspend fun longPress(actionObj: JsonObject, screenWidth: Int, screenHeight: Int): ActionResult {
         val element = actionObj.get("element")
         Log.d(TAG, "长按事件位置: $element")
 
@@ -732,7 +732,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
      * @param screenWidth 屏幕宽度像素
      * @param screenHeight 屏幕高度像素
      */
-    private fun doubleTap(actionObj: JsonObject, screenWidth: Int, screenHeight: Int): ActionResult {
+    private suspend fun doubleTap(actionObj: JsonObject, screenWidth: Int, screenHeight: Int): ActionResult {
         val element = actionObj.get("element")
         Log.d(TAG, "双击事件位置: $element")
 

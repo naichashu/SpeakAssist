@@ -94,7 +94,7 @@ class MyAccessibilityService : AccessibilityService() {
      * @param y 屏幕绝对Y坐标
      * @return 是否成功点击完成
      */
-    fun clickByNode(x: Float, y: Float): Boolean {
+    suspend fun clickByNode(x: Float, y: Float): Boolean {
         // 构建手势路径
         val path = Path()
         path.moveTo(x, y)
@@ -108,15 +108,13 @@ class MyAccessibilityService : AccessibilityService() {
             .build()
         Log.d(TAG, "执行点击：坐标($x, $y)")
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            val result = dispatchGesture(gesture, null, null)
-
-            Log.d(TAG, "点击手势提交${if (result) "成功" else "失败"}")
-            return result
-        } else {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             Log.e(TAG, "系统版本不支持dispatchGesture")
             return false
         }
+        val result = dispatchGestureAwaiting(gesture)
+        Log.d(TAG, "点击手势${if (result) "完成" else "失败"}")
+        return result
     }
 
     /**
@@ -125,7 +123,7 @@ class MyAccessibilityService : AccessibilityService() {
      * @param y 屏幕绝对Y坐标
      * @return 是否成功执行长按
      */
-    fun longPressByNode(x: Float, y: Float): Boolean {
+    suspend fun longPressByNode(x: Float, y: Float): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             Log.e(TAG, "系统版本不支持dispatchGesture")
             return false
@@ -146,8 +144,8 @@ class MyAccessibilityService : AccessibilityService() {
 
         Log.d(TAG, "执行长按：坐标($x, $y)，持续时间${longPressDuration}ms")
 
-        val result = dispatchGesture(gesture, null, null)
-        Log.d(TAG, "长按手势提交${if (result) "成功" else "失败"}")
+        val result = dispatchGestureAwaiting(gesture)
+        Log.d(TAG, "长按手势${if (result) "完成" else "失败"}")
         return result
     }
 
@@ -157,7 +155,7 @@ class MyAccessibilityService : AccessibilityService() {
      * @param y 屏幕绝对Y坐标
      * @return 是否成功执行双击
      */
-    fun doubleTapByNode(x: Float, y: Float): Boolean {
+    suspend fun doubleTapByNode(x: Float, y: Float): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             Log.e(TAG, "系统版本不支持dispatchGesture")
             return false
@@ -181,8 +179,8 @@ class MyAccessibilityService : AccessibilityService() {
 
         Log.d(TAG, "执行双击：坐标($x, $y)，间隔300ms")
 
-        val result = dispatchGesture(gesture, null, null)
-        Log.d(TAG, "双击手势提交${if (result) "成功" else "失败"}")
+        val result = dispatchGestureAwaiting(gesture)
+        Log.d(TAG, "双击手势${if (result) "完成" else "失败"}")
         return result
     }
 
@@ -194,7 +192,7 @@ class MyAccessibilityService : AccessibilityService() {
      * @param endY 终点Y坐标
      * @return 是否成功执行滑动
      */
-    fun swipeByNode(startX: Float, startY: Float, endX: Float, endY: Float): Boolean {
+    suspend fun swipeByNode(startX: Float, startY: Float, endX: Float, endY: Float): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             Log.e(TAG, "系统版本不支持dispatchGesture")
             return false
@@ -216,9 +214,35 @@ class MyAccessibilityService : AccessibilityService() {
 
         Log.d(TAG, "执行滑动：从($startX, $startY)到($endX, $endY)，持续${swipeDuration}ms")
 
-        val result = dispatchGesture(gesture, null, null)
-        Log.d(TAG, "滑动手势提交${if (result) "成功" else "失败"}")
+        val result = dispatchGestureAwaiting(gesture)
+        Log.d(TAG, "滑动手势${if (result) "完成" else "失败"}")
         return result
+    }
+
+    /**
+     * 把 dispatchGesture 包成可挂起、等待完成回调的调用，并在手势期间把取消芯片
+     * 从 WindowManager 临时摘下，避免 AccessibilityService 模拟的触摸被右上角芯片
+     * 吞掉（详见 FloatingWindowManager.detachCancelChipForGesture 的注释）。
+     */
+    private suspend fun dispatchGestureAwaiting(gesture: GestureDescription): Boolean {
+        floatingWindowManager?.detachCancelChipForGesture()
+        return try {
+            suspendCancellableCoroutine { cont ->
+                val callback = object : AccessibilityService.GestureResultCallback() {
+                    override fun onCompleted(gestureDescription: GestureDescription?) {
+                        if (cont.isActive) cont.resume(true)
+                    }
+
+                    override fun onCancelled(gestureDescription: GestureDescription?) {
+                        if (cont.isActive) cont.resume(false)
+                    }
+                }
+                val submitted = dispatchGesture(gesture, callback, null)
+                if (!submitted && cont.isActive) cont.resume(false)
+            }
+        } finally {
+            floatingWindowManager?.reattachCancelChipAfterGesture()
+        }
     }
 
     suspend fun getScreenshotSuspend(): Bitmap? {
