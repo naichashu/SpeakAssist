@@ -64,7 +64,10 @@ Key control limits in the loop: max 50 steps, up to 4 consecutive action-format 
 - `app/src/main/java/com/example/service/MyAccessibilityService.kt`: global automation surface for gestures, global back/home actions, current-app tracking, screenshot capture, and floating-window lifecycle.
 - `app/src/main/java/com/example/service/MyInputMethodService.kt`: custom IME used for model-driven text input.
 - `app/src/main/java/com/example/input/`: text-input dispatch layer. `TextInputExecutor` routes model `type` actions to either `AccessibilityTextInput` (direct `setText` via `AccessibilityNodeInfo`) or `ImeTextInput` (simulated input through the custom IME), based on `SettingsPrefs.textInputMode` (`direct` | `ime_simulation`). `ImeActivationHelper` handles switching to SpeakAssist IME when the IME path is selected.
-- `app/src/main/java/com/example/speech/`: speech I/O. `BaiduSpeechManager` is the online REST push-to-talk recognizer used by the main UI and the floating window. `VoskRecognizerManager` + `WakeWordListeningManager` provide the offline wake-word path ("小噜小噜" and several phonetic variants → capture follow-up command via RMS silence detection). Vosk requires the `vosk-model-small-cn-0.22` folder under `app/src/main/assets/`; on first use it is copied to app internal storage. The wake-word loop is gated by `SettingsPrefs.voiceWakeEnabled`.
+- `app/src/main/java/com/example/speech/`: speech I/O. Two complementary engines, each with a single responsibility:
+  - `BaiduSpeechManager` — online REST recognizer (百度语音). Handles all general-purpose command recognition: button-initiated capture from `MainActivity`, floating-window button capture, and the post-wake-word command capture. Returns null for empty/blank `result` so callers see `onError("未识别到语音")` instead of dispatching empty text.
+  - `VoskRecognizerManager` + `WakeWordListeningManager` — offline keyword-spotter only. `WakeWordListeningManager` builds a JSON grammar from the wake-word list (e.g. `["小 噜 小 噜", ..., "[unk]"]`) and passes it to Vosk's 3-arg `Recognizer` constructor, which **constrains output to the grammar phrases or `[unk]`** — Vosk cannot emit arbitrary Chinese text. On wake-word detection it fires `onWakeWordDetected()`, breaks the loop, and releases the mic. It does NOT do command recognition; callers are expected to start `BaiduSpeechManager` next.
+  - Vosk requires the `vosk-model-small-cn-0.22` folder under `app/src/main/assets/`; on first use it is copied to app internal storage. Grammar support requires a lookahead model (the folder must contain `graph/Gr.fst` + `graph/HCLr.fst`, not a prebuilt `HCLG.fst`). The wake-word loop is gated by `SettingsPrefs.voiceWakeEnabled`.
 
 ### Persistence and UI state
 
@@ -80,6 +83,7 @@ The floating-window implementation is service-owned, not activity-owned.
 - It watches `SettingsPrefs` to decide whether the circle button should exist.
 - It watches `ChatViewModel.executionState` to hide the circle during execution, show/update the execution card, and restore the circle after completion.
 - During execution, an `ExecutionCancelChipView` is shown beside the execution card; tapping it calls `ChatViewModel.requestCancel()` to stop the loop cleanly after the current step finishes.
+- Voice-wake handoff: `WakeWordListeningManager.onWakeWordDetected` → `stopWakeWordListening()` (releases mic) → `BaiduSpeechManager.start()` (captures command). Baidu's `onResult` dispatches to `ChatViewModel.executeTaskLoop()`; `onError` shows a toast-like chip and restarts wake-word listening via `syncWakeWordListening()`. Manual floating-window capture (tapping the circle when idle) also calls `BaiduSpeechManager.start()` directly.
 - Voice commands started from the floating window run the same `ChatViewModel.executeTaskLoop()` path as commands started from `MainActivity`.
 
 ### Prompt and action contract
@@ -113,4 +117,5 @@ If you change the prompt contract, keep `strings.xml`, `ModelClient.parseRespons
 - `README.md` is a short Chinese overview of the Android app. `CLAUDE.md` (this file) is the authoritative architectural reference.
 - `SpeakAssist_UI设计文档.md` is the UI design source of truth.
 - `docs/语音唤醒词技术方案.md` documents the offline wake-word design used by `WakeWordListeningManager`.
+- `docs/代码审查修复记录_2026-04-21.md` logs the bugs found and fixed in a 2026-04-21 code-review pass (截图崩溃/主线程阻塞/空结果派发/悬浮窗残留 Runnable 等). Read this before touching `ChatViewModel`, `FloatingWindowManager`, or the input-dispatch layer to avoid reintroducing resolved issues.
 - No Cursor rules, `.cursorrules`, or Copilot instruction files are present in the repository at the time of writing.
