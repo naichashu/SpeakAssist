@@ -4,7 +4,6 @@ import android.content.Context
 import com.example.data.SettingsPrefs
 import com.example.service.MyAccessibilityService
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 
 data class TextInputResult(
     val success: Boolean,
@@ -18,16 +17,10 @@ class TextInputExecutor(
     private val imeTextInput: ImeTextInput = ImeTextInput(service)
 ) {
 
-    fun inputText(text: String): TextInputResult {
-        return when (currentMode()) {
+    suspend fun inputText(text: String): TextInputResult {
+        return when (SettingsPrefs.textInputMode(context).first()) {
             TextInputMode.DIRECT -> accessibilityTextInput.inputText(text)
             TextInputMode.IME_SIMULATION -> imeTextInput.inputText(text)
-        }
-    }
-
-    private fun currentMode(): TextInputMode {
-        return runBlocking {
-            SettingsPrefs.textInputMode(context).first()
         }
     }
 }

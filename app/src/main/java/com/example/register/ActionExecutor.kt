@@ -37,6 +37,8 @@ data class ActionResult(
  */
 class ActionExecutor(private val service: MyAccessibilityService) {
 
+    private val textInputExecutor = TextInputExecutor(service, service)
+
     companion object {
         const val TAG = "ActionExecutor"
         private const val LAUNCH_SETTLE_DELAY_MS = 2500L
@@ -351,7 +353,6 @@ class ActionExecutor(private val service: MyAccessibilityService) {
 
             // 5. 启动应用
             service.startActivity(intent)
-            delay(1000)
 
             // 6. 启动成功，返回成功结果
             return ActionResult(
@@ -440,13 +441,13 @@ class ActionExecutor(private val service: MyAccessibilityService) {
     /**
      * 输入文本
      */
-    private fun type(actionObj: JsonObject): ActionResult {
+    private suspend fun type(actionObj: JsonObject): ActionResult {
         val text = actionObj.get("text")?.asString ?: return ActionResult(
             success = false,
             message = "缺少text参数"
         )
 
-        val inputResult = TextInputExecutor(service, service).inputText(text)
+        val inputResult = textInputExecutor.inputText(text)
 
         return if (inputResult.success) {
             ActionResult(

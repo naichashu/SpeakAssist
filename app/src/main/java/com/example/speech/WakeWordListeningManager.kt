@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,19 +49,14 @@ class WakeWordListeningManager(private val context: Context) {
         private const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
         private const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
 
-        // 唤醒词（支持多个候选，增加鲁棒性）
+        // 唤醒词（多候选兼容近音识别）
         private val WAKE_WORDS = listOf(
             "小噜小噜",
             "小陆小陆",
-            "小露小露",
-            "晓露晓露",
             "小鹿小鹿",
-            "小鹿 小鹿",
-            "小路上",
-            "小路上想不想",
-            "小度小度",
-            "小度 小度",
-            "小猪"
+            "小路小路",
+            "晓露晓露",
+            "小露小露"
         )
 
         // 静音检测参数
@@ -71,6 +67,11 @@ class WakeWordListeningManager(private val context: Context) {
 
         // 命令识别阶段最大时长
         private const val MAX_COMMAND_MS = 10000L
+
+        // 唤醒词的通用形态：四字 "小X小X"（同字叠词），用于兜底 Vosk 把唤醒词识别成
+        // 词表外的变体（例如 "小禄小禄"、"小芦小芦"）时仍能识别为唤醒词并从命令里剥离。
+        private val WAKE_WORD_PATTERN = Regex("小(.)小\\1")
+        private val WAKE_WORD_ONLY_PATTERN = Regex("^小(.)小\\1$")
     }
 
     enum class State {
@@ -100,6 +101,8 @@ class WakeWordListeningManager(private val context: Context) {
     interface Listener {
         fun onWakeWordDetected()
         fun onCommandRecognized(text: String)
+        /** 命令阶段结束但没有有效输出（超时/空白/只有唤醒词），用于让上层收回"正在听需求"视觉 */
+        fun onCommandIgnored(reason: String) = Unit
         fun onError(message: String)
         fun onStateChanged(state: State)
     }
@@ -310,9 +313,11 @@ class WakeWordListeningManager(private val context: Context) {
                                     }
                                 } else {
                                     Log.d(TAG, "识别结果仅包含唤醒词，忽略命令派发: raw=$finalResult, command=$command")
+                                    handler.post { listener?.onCommandIgnored("未识别到有效命令") }
                                 }
                             } else {
                                 Log.d(TAG, "未识别到命令内容")
+                                handler.post { listener?.onCommandIgnored("未识别到命令") }
                             }
 
                             hasSpeechDetected = false
@@ -329,11 +334,14 @@ class WakeWordListeningManager(private val context: Context) {
                         silenceStartTime = 0L
                         listeningStartTime = System.currentTimeMillis()
                         updateState(State.IDLE)
+                        handler.post { listener?.onCommandIgnored("未识别到命令") }
                     }
                 }
 
                 delay(10)
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "唤醒词检测循环异常", e)
             handler.post { listener?.onError("唤醒词监听异常: ${e.message ?: "未知错误"}") }
@@ -396,6 +404,8 @@ class WakeWordListeningManager(private val context: Context) {
         for (wakeWord in WAKE_WORDS) {
             result = result.replace(wakeWord, "", ignoreCase = true)
         }
+        // 再剥离词表外的 "小X小X" 变体（Vosk 声学相近字的转写），防止被当命令派发
+        result = result.replace(WAKE_WORD_PATTERN, "")
         return result.replace(Regex("\\s+"), " ").trim()
     }
 
@@ -416,6 +426,9 @@ class WakeWordListeningManager(private val context: Context) {
     private fun isWakeWordOnly(normalizedText: String): Boolean {
         if (normalizedText.isBlank()) {
             return false
+        }
+        if (WAKE_WORD_ONLY_PATTERN.matches(normalizedText)) {
+            return true
         }
         return WAKE_WORDS.any { normalizeForWakeWordMatch(it) == normalizedText }
     }

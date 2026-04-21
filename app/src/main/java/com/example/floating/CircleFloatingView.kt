@@ -134,6 +134,10 @@ class CircleFloatingView(
     }
 
     fun showListening() {
+        // 若正处于结果/错误提示阶段，不打断用户当前看到的反馈（避免 RESULT 瞬间被下一次唤醒事件覆盖）
+        if (currentState == State.RESULT || currentState == State.ERROR) {
+            return
+        }
         expandForState(State.LISTENING, "正在听需求...")
     }
 

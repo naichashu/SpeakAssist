@@ -47,6 +47,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
     private var overlaysSuspended = false
     private var isVoiceWakeEnabled = false
     private var executionStateJob: Job? = null
+    private var postTaskCleanup: Runnable? = null
     private var wakeWordManager: WakeWordListeningManager? = null
 
     fun init() {
@@ -110,6 +111,16 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                         circleView?.collapseToIdle()
                         onVoiceResult(text)
                     }, RESULT_DISPLAY_DURATION)
+                }
+
+                override fun onCommandIgnored(reason: String) {
+                    handler.post {
+                        Log.d(TAG, "唤醒词命令忽略: $reason")
+                        circleView?.showRecognitionError(reason)
+                    }
+                    handler.postDelayed({
+                        circleView?.collapseToIdle()
+                    }, ERROR_DISPLAY_DURATION)
                 }
 
                 override fun onError(message: String) {
@@ -211,6 +222,12 @@ class FloatingWindowManager(private val service: AccessibilityService) {
 
     private fun cancelSpeechRecognition() {
         speechManager.cancel()
+        // 唤醒词触发后的"听命令"阶段走的是 Vosk，speechManager 未启用；
+        // 此时必须强制把 wakeWordManager 重置到 IDLE，
+        // 否则它继续留在 WAKE_DETECTED 里，下一次说的唤醒词会被当命令直接派发。
+        if (wakeWordManager?.state?.value != WakeWordListeningManager.State.IDLE) {
+            stopWakeWordListening()
+        }
         circleView?.collapseToIdle()
         syncWakeWordListening()
     }
@@ -357,9 +374,15 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                     SettingsPrefs.setVoiceWakeEnabled(service.applicationContext, false)
                     return@collectLatest
                 }
+                val wasActive = wakeWordManager?.state?.value != WakeWordListeningManager.State.IDLE
                 isVoiceWakeEnabled = enabled
                 Log.d(TAG, "语音唤醒开关状态: $enabled")
                 syncWakeWordListening()
+                // 关闭开关时，如果此时唤醒词管理器处于非 IDLE（例如 WAKE_DETECTED 等命令），
+                // 需要把圆圈视觉一起收回，避免卡在"正在听需求..."状态
+                if (!enabled && wasActive) {
+                    circleView?.collapseToIdle()
+                }
             }
         }
     }
@@ -369,6 +392,8 @@ class FloatingWindowManager(private val service: AccessibilityService) {
             ChatViewModel.executionState.collectLatest { state ->
                 when {
                     state.isRunning && !isTaskRunning -> {
+                        postTaskCleanup?.let { handler.removeCallbacks(it) }
+                        postTaskCleanup = null
                         isTaskRunning = true
                         hideCircle()
                         showExecutionCard(state.taskTitle)
@@ -386,14 +411,17 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                             else -> "执行失败"
                         }
                         executionCardView?.showCompletion(state.isSuccess, title, state.resultMessage)
-                        handler.postDelayed({
+                        val cleanup = Runnable {
                             executionCardView = null
                             if (isCircleEnabled) {
                                 showCircle()
                             }
                             syncWakeWordListening()
                             ChatViewModel.resetState()
-                        }, 5500)
+                            postTaskCleanup = null
+                        }
+                        postTaskCleanup = cleanup
+                        handler.postDelayed(cleanup, 5500)
                     }
                 }
             }

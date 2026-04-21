@@ -27,6 +27,10 @@ object AppRegister {
      * @return MutableMap<String, String> 键：应用名称，值：App 唯一包名
      */
     fun initialize(context: Context){
+        // 清空旧映射，避免卸载的应用残留、避免重复条目
+        appToPackageMap.clear()
+        packageToAppMap.clear()
+
         // 初始化需要的可变映射（满足你的数据结构要求）
         val packageManager: PackageManager = context.packageManager
 
@@ -50,12 +54,10 @@ object AppRegister {
                 appToPackageMap[appName.lowercase()] = packageName
 
                 packageToAppMap[packageName] = appName
-                Log.d(TAG, "已安装 App：$appName -> $packageName")
             } catch (e: Exception) {
                 // 极少数系统 App 可能获取失败，直接跳过
                 continue
             }
         }
-
     }
 }

@@ -150,8 +150,7 @@ class MainActivity : AppCompatActivity() {
         // 设置汉堡菜单按钮点击事件
         val ivMenu = findViewById<android.widget.ImageView>(R.id.ivMenu)
         ivMenu?.setOnClickListener {
-            // 先隐藏键盘，再打开侧边栏
-            hideKeyboard()
+            clearInputFocus()
             drawerLayout.openDrawer(GravityCompat.START)
         }
     }
@@ -163,6 +162,7 @@ class MainActivity : AppCompatActivity() {
     private fun setupDrawer() {
         val navigationView = findViewById<NavigationView>(R.id.navigationView)
         navigationView.setNavigationItemSelectedListener { menuItem ->
+            clearInputFocus()
             when (menuItem.itemId) {
                 R.id.nav_history -> {
                     startActivity(Intent(this, HistoryActivity::class.java))
@@ -188,20 +188,8 @@ class MainActivity : AppCompatActivity() {
      */
     private fun checkPermissions() {
         lifecycleScope.launch {
-            // 检查无障碍服务是否启用 - 使用更可靠的方式
-            var accessibilityEnabled = false
-            try {
-                val accessibilityManager = getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
-                val enabledServices = accessibilityManager.getEnabledAccessibilityServiceList(
-                    AccessibilityServiceInfo.FEEDBACK_ALL_MASK
-                )
-                val myPackageName = packageName
-                accessibilityEnabled = enabledServices.any { serviceInfo ->
-                    serviceInfo.resolveInfo?.serviceInfo?.packageName == myPackageName
-                }
-            } catch (e: Exception) {
-                Log.e("MainActivity", "检查无障碍服务失败", e)
-            }
+            // 检查无障碍服务是否启用
+            val accessibilityEnabled = isAccessibilityServiceEnabled()
 
             // 检查输入法是否启用
             val inputMethodEnabled = MyInputMethodService.isEnabled(this@MainActivity)
@@ -259,22 +247,6 @@ class MainActivity : AppCompatActivity() {
             adapter = chatAdapter
         }
 
-        // 添加测试消息（开发阶段用）
-        addTestMessages()
-    }
-
-    /**
-     * 添加测试消息
-     * 在开发阶段用于验证UI显示效果
-     */
-    private fun addTestMessages() {
-        chatMessages.add(ChatMessageAdapter.ChatMessageItem(
-            content = "你好！我是SpeakAssist，你的AI语音助手", isUser = false
-        ))
-        chatMessages.add(ChatMessageAdapter.ChatMessageItem(
-            content = "请告诉我你想执行什么操作，比如\"打开微信\"", isUser = false
-        ))
-        chatAdapter.submitList(chatMessages.toList())
         updateEmptyState()
     }
 
@@ -332,6 +304,7 @@ class MainActivity : AppCompatActivity() {
 
         // 语音按钮点击事件
         btnVoice.setOnClickListener {
+            clearInputFocus()
             if (speechManager.isListening()) {
                 speechManager.stop()
                 updateVoiceButtonState(false)
@@ -369,31 +342,11 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * 发送消息
-     * 将用户输入添加到消息列表，并触发任务执行
-     *
-     * @param text 用户输入的文本
+     * 清空输入并触发任务执行，消息显示统一由 observeExecutionState 处理
      */
     private fun sendMessage(text: String) {
-        // 添加用户消息到列表
-        val userMessage = ChatMessageAdapter.ChatMessageItem(
-            content = text,
-            isUser = true
-        )
-
-        // 更新列表
-        chatMessages.add(userMessage)
-        chatAdapter.submitList(chatMessages.toList())
-
-        // 清空输入框
         etInput.setText("")
-
-        // 滚动到底部
-        rvChatMessages.scrollToPosition(chatMessages.size - 1)
-
-        // 更新空状态
-        updateEmptyState()
-
-        // 执行任务
+        clearInputFocus()
         executeTask(text)
     }
 
@@ -407,27 +360,13 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 Log.d("MainActivity", "开始执行任务：$command")
-
-                // 添加系统消息（正在执行）
-                addSystemMessage("正在执行：$command")
-
-                // 延迟一下让UI先更新
-                delay(500)
-
-                // 创建ViewModel并执行任务
                 chatViewModel = ChatViewModel(application)
                 val result = chatViewModel.executeTaskLoop(command, "autoglm-phone")
-
-                // 任务完成后显示结果
-                if (result.success) {
-                    addSystemMessage("执行完成：${result.message}")
-                } else {
-                    addSystemMessage("执行失败：${result.message}")
+                if (!result.success && result.message.contains("无障碍服务")) {
+                    openAccessibilitySettings()
                 }
             } catch (e: Exception) {
                 Log.e("MainActivity", "执行任务失败", e)
-
-                // 显示错误消息
                 addSystemMessage("执行失败：${e.message}")
 
                 if (e.message?.contains("无障碍服务") == true) {
@@ -439,11 +378,12 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * 观察任务执行状态
-     * 当从悬浮窗发起任务时，在聊天列表中显示结果
+     * 显示每次任务的用户指令、执行过程和结果（统一入口，避免与本地发送重复）
      */
     private fun observeExecutionState() {
         lifecycleScope.launch {
             var lastTaskTitle = ""
+            var lastCompletionKey = ""
             ChatViewModel.executionState.collect { state ->
                 // 任务开始时，显示用户指令（作为用户消息）
                 if (state.isRunning && state.taskTitle.isNotBlank() && state.taskTitle != lastTaskTitle) {
@@ -451,14 +391,18 @@ class MainActivity : AppCompatActivity() {
                     addUserMessage(state.taskTitle)
                     addSystemMessage("正在执行：${state.taskTitle}")
                 }
-                // 任务完成时，显示结果
+                // 任务完成时，显示结果（同一结果只显示一次，避免 Activity 重建后重放）
                 if (state.isCompleted && state.resultMessage.isNotBlank()) {
-                    val prefix = when {
-                        state.isCancelled -> "已取消"
-                        state.isSuccess -> "执行完成"
-                        else -> "执行失败"
+                    val key = "${state.isSuccess}|${state.isCancelled}|${state.resultMessage}"
+                    if (key != lastCompletionKey) {
+                        lastCompletionKey = key
+                        val prefix = when {
+                            state.isCancelled -> "已取消"
+                            state.isSuccess -> "执行完成"
+                            else -> "执行失败"
+                        }
+                        addSystemMessage("$prefix：${state.resultMessage}")
                     }
-                    addSystemMessage("$prefix：${state.resultMessage}")
                     lastTaskTitle = ""
                 }
             }
@@ -518,9 +462,18 @@ class MainActivity : AppCompatActivity() {
      */
     private fun hideKeyboard() {
         val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-        currentFocus?.let {
-            imm.hideSoftInputFromWindow(it.windowToken, 0)
-        }
+        val token = currentFocus?.windowToken ?: etInput.windowToken ?: return
+        imm.hideSoftInputFromWindow(token, 0)
+    }
+
+    /**
+     * 清除输入框焦点并收起键盘
+     * 点击其它按钮、返回页面、切 Activity 时统一调用，避免输入框残留 focus
+     */
+    private fun clearInputFocus() {
+        // 先收键盘（依赖 focus 取 windowToken），再清 focus
+        hideKeyboard()
+        etInput.clearFocus()
     }
 
     private fun updateVoiceButtonState(isListening: Boolean) {
@@ -603,12 +556,21 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * 生命周期 - onResume
-     * 返回界面时检查权限状态
+     * 返回界面时由 onWindowFocusChanged 统一刷新权限状态
      */
     override fun onResume() {
         super.onResume()
-        // 每次返回界面时检查权限
-        checkPermissions()
+        // 返回页面时，避免系统把上次的焦点还原到输入框
+        clearInputFocus()
+    }
+
+    /**
+     * 生命周期 - onPause
+     * 离开页面前先卸掉输入焦点，防止系统在 onResume 时自动恢复
+     */
+    override fun onPause() {
+        super.onPause()
+        clearInputFocus()
     }
 
     /**

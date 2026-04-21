@@ -85,18 +85,22 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     suspend fun executeTaskLoop(userPrompt: String, modelName: String): TaskResult {
-        AppRegister.initialize(getApplication()) // 初始化注册，以确保最新的映射配置被加载
-        val accessibilityService = MyAccessibilityService.getInstance()
-            ?: return TaskResult(false, "无障碍服务未启用")
         Log.d(TAG, "开始执行任务")
         messageContext.clear()
 
-        // 重置状态并通知开始执行
+        // 先通知开始执行（必须在任何前置检查之前），
+        // 观察者依赖此状态渲染用户消息，否则 early return 会导致 UI 毫无反馈。
         _cancelRequested.value = false
         _executionState.value = TaskExecutionState(
             isRunning = true,
             taskTitle = userPrompt
         )
+        // StateFlow 合并多个快速写入，delay 让观察者先收到 running 状态
+        delay(50)
+
+        AppRegister.initialize(getApplication()) // 初始化注册，以确保最新的映射配置被加载
+        val accessibilityService = MyAccessibilityService.getInstance()
+            ?: return failWithoutSession("无障碍服务未启用")
 
         // 创建会话记录
         val sessionId = db.taskSessionDao().insert(
@@ -231,17 +235,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 return finishTask(sessionId, true, result.message ?: "任务执行完成")
             }
 
-            // 检查是否完成
-            val isFinished = result.message != null && (result.message.contains("完成") ||
-                    result.message.contains("finish"))
-
-            if (isFinished) {
-                // 任务完成
-                val completionMessage = result.message
-                Log.d(TAG, "任务完成: $completionMessage")
-                return finishTask(sessionId, true, completionMessage ?: "任务执行完成")
-            }
-
             // 错误处理
             if (!result.success) {
                 val errorText = buildString {
@@ -315,6 +308,22 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             resultMessage = message
         )
         return TaskResult(success, message)
+    }
+
+    /**
+     * 未创建会话就提前失败（例如无障碍未启用）
+     * 不写库，但仍把结果走状态流，让观察者展示错误消息。
+     */
+    private fun failWithoutSession(message: String): TaskResult {
+        messageContext.clear()
+        _executionState.value = _executionState.value.copy(
+            isRunning = false,
+            isCompleted = true,
+            isSuccess = false,
+            isCancelled = false,
+            resultMessage = message
+        )
+        return TaskResult(false, message)
     }
 
     /**

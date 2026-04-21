@@ -67,11 +67,6 @@ class SettingsActivity : AppCompatActivity() {
         refreshPermissionStatus()
     }
 
-    override fun onResume() {
-        super.onResume()
-        onImeStateChanged()
-    }
-
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (!hasFocus) {

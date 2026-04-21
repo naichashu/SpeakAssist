@@ -104,20 +104,16 @@ class ExecutionCardView(
     }
 
     fun updateStep(step: Int, action: String) {
-        handler.post {
-            tvStepProgress?.text = "已执行第 $step 步"
-            tvCurrentAction?.text = "当前步骤：$action"
-        }
+        tvStepProgress?.text = "已执行第 $step 步"
+        tvCurrentAction?.text = "当前步骤：$action"
     }
 
     fun showCompletion(success: Boolean, title: String, message: String) {
-        handler.post {
-            tvTaskTitle?.text = title
-            tvCurrentAction?.text = message
+        tvTaskTitle?.text = title
+        tvCurrentAction?.text = message
 
-            handler.postDelayed({
-                destroy()
-            }, AUTO_HIDE_DELAY)
-        }
+        handler.postDelayed({
+            destroy()
+        }, AUTO_HIDE_DELAY)
     }
 }

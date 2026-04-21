@@ -63,12 +63,13 @@ Key control limits in the loop: max 50 steps, up to 4 consecutive action-format 
 - `app/src/main/java/com/example/register/ActionExecutor.kt`: action parsing and execution bridge. Coordinates are model-facing thousandths of screen width/height and are converted to absolute pixels here.
 - `app/src/main/java/com/example/service/MyAccessibilityService.kt`: global automation surface for gestures, global back/home actions, current-app tracking, screenshot capture, and floating-window lifecycle.
 - `app/src/main/java/com/example/service/MyInputMethodService.kt`: custom IME used for model-driven text input.
-- `app/src/main/java/com/example/speech/BaiduSpeechManager.kt`: voice recognition integration used by both the main UI and floating window flow.
+- `app/src/main/java/com/example/input/`: text-input dispatch layer. `TextInputExecutor` routes model `type` actions to either `AccessibilityTextInput` (direct `setText` via `AccessibilityNodeInfo`) or `ImeTextInput` (simulated input through the custom IME), based on `SettingsPrefs.textInputMode` (`direct` | `ime_simulation`). `ImeActivationHelper` handles switching to SpeakAssist IME when the IME path is selected.
+- `app/src/main/java/com/example/speech/`: speech I/O. `BaiduSpeechManager` is the online REST push-to-talk recognizer used by the main UI and the floating window. `VoskRecognizerManager` + `WakeWordListeningManager` provide the offline wake-word path ("小噜小噜" and several phonetic variants → capture follow-up command via RMS silence detection). Vosk requires the `vosk-model-small-cn-0.22` folder under `app/src/main/assets/`; on first use it is copied to app internal storage. The wake-word loop is gated by `SettingsPrefs.voiceWakeEnabled`.
 
 ### Persistence and UI state
 
 - `app/src/main/java/com/example/data/AppDatabase.kt` defines a Room database with `TaskSession` and `TaskStep` tables. History screens read directly from this DB.
-- `app/src/main/java/com/example/data/SettingsPrefs.kt` uses DataStore Preferences for the floating-window enabled flag.
+- `app/src/main/java/com/example/data/SettingsPrefs.kt` uses DataStore Preferences. Current keys: `floating_window_enabled`, `text_input_mode` (`direct` | `ime_simulation`), `voice_wake_enabled`.
 - `HistoryActivity` shows recorded task sessions; `HistoryDetailActivity` shows per-step execution logs and AI thinking.
 
 ### Floating window flow
@@ -78,6 +79,7 @@ The floating-window implementation is service-owned, not activity-owned.
 - `FloatingWindowManager` is created from `MyAccessibilityService.onServiceConnected()`.
 - It watches `SettingsPrefs` to decide whether the circle button should exist.
 - It watches `ChatViewModel.executionState` to hide the circle during execution, show/update the execution card, and restore the circle after completion.
+- During execution, an `ExecutionCancelChipView` is shown beside the execution card; tapping it calls `ChatViewModel.requestCancel()` to stop the loop cleanly after the current step finishes.
 - Voice commands started from the floating window run the same `ChatViewModel.executeTaskLoop()` path as commands started from `MainActivity`.
 
 ### Prompt and action contract
@@ -108,5 +110,7 @@ If you change the prompt contract, keep `strings.xml`, `ModelClient.parseRespons
 
 ## Notes from other repository docs
 
-- `README.md` still contains legacy Python/Open-AutoGLM notes and example API usage; it is not the authoritative source for the current Android app architecture.
+- `README.md` is a short Chinese overview of the Android app. `CLAUDE.md` (this file) is the authoritative architectural reference.
+- `SpeakAssist_UI设计文档.md` is the UI design source of truth.
+- `docs/语音唤醒词技术方案.md` documents the offline wake-word design used by `WakeWordListeningManager`.
 - No Cursor rules, `.cursorrules`, or Copilot instruction files are present in the repository at the time of writing.

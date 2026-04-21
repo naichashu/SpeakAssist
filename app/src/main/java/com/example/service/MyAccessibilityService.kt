@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 
 /**
@@ -22,6 +23,7 @@ class MyAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "MyAccessibilityService"
+        private const val SCREENSHOT_TIMEOUT_MS = 5000L
         private var autoAccessibilityService: MyAccessibilityService? = null
 
         // 提供全局获取实例的入口
@@ -224,8 +226,10 @@ class MyAccessibilityService : AccessibilityService() {
         floatingWindowManager?.hideForScreenshot()
         delay(100)
 
-        val bitmap = suspendCancellableCoroutine { cont ->
-            getScreenshot { cont.resume(it) }
+        val bitmap = withTimeoutOrNull(SCREENSHOT_TIMEOUT_MS) {
+            suspendCancellableCoroutine<Bitmap?> { cont ->
+                getScreenshot { cont.resume(it) }
+            }
         }
 
         // 截屏后恢复执行卡片
@@ -249,10 +253,13 @@ class MyAccessibilityService : AccessibilityService() {
 
                         override fun onSuccess(screenshot: ScreenshotResult) {
                             val hardwareBuffer = screenshot.hardwareBuffer
-                            val hardwareBitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, null)
-                            hardwareBuffer.close()
-                            val bitmap = hardwareBitmap?.copy(Bitmap.Config.ARGB_8888, false)
-                            callback(bitmap)
+                            try {
+                                val hardwareBitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, null)
+                                val bitmap = hardwareBitmap?.copy(Bitmap.Config.ARGB_8888, false)
+                                callback(bitmap)
+                            } finally {
+                                hardwareBuffer.close()
+                            }
                         }
 
                     })

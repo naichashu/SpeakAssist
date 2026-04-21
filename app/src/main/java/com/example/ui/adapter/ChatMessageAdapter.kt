@@ -25,13 +25,20 @@ class ChatMessageAdapter : ListAdapter<ChatMessageItem, ChatMessageAdapter.Messa
      * 聊天消息数据类
      * @param content 消息文本内容
      * @param isUser 是否为用户发送的消息，true表示用户消息，false表示系统消息
-     * @param timestamp 消息时间戳（可选）
+     * @param timestamp 消息时间戳
+     * @param id 唯一标识（毫秒级时间戳可能碰撞，需额外自增）
      */
     data class ChatMessageItem(
         val content: String,
         val isUser: Boolean,
-        val timestamp: Long = System.currentTimeMillis()
-    )
+        val timestamp: Long = System.currentTimeMillis(),
+        val id: Long = nextId()
+    ) {
+        companion object {
+            private val idCounter = java.util.concurrent.atomic.AtomicLong(0)
+            private fun nextId(): Long = idCounter.incrementAndGet()
+        }
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MessageViewHolder {
         val view = LayoutInflater.from(parent.context)
@@ -89,12 +96,10 @@ class ChatMessageAdapter : ListAdapter<ChatMessageItem, ChatMessageAdapter.Messa
      */
     class MessageDiffCallback : DiffUtil.ItemCallback<ChatMessageItem>() {
         override fun areItemsTheSame(oldItem: ChatMessageItem, newItem: ChatMessageItem): Boolean {
-            // 使用时间戳判断是否为同一项
-            return oldItem.timestamp == newItem.timestamp
+            return oldItem.id == newItem.id
         }
 
         override fun areContentsTheSame(oldItem: ChatMessageItem, newItem: ChatMessageItem): Boolean {
-            // 判断内容是否相同
             return oldItem == newItem
         }
     }
