@@ -59,11 +59,26 @@ class CircleFloatingView(
     private val handler = Handler(Looper.getMainLooper())
     private val density = context.resources.displayMetrics.density
 
-    private val screenWidth = context.resources.displayMetrics.widthPixels
-    private val screenHeight = context.resources.displayMetrics.heightPixels
     private val circleSizePx = (CIRCLE_SIZE * density).toInt()
     private val halfCirclePx = circleSizePx / 2
     private val clickThresholdPx = (CLICK_THRESHOLD_DP * density).toInt()
+
+    /** 实时获取当前屏幕宽高，避免横竖屏切换后用旧尺寸计算动画目标导致圆圈消失。 */
+    private fun screenWidth(): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        runCatching { context.display?.mode?.physicalWidth }
+            .getOrNull() ?: context.resources.displayMetrics.widthPixels
+    } else {
+        @Suppress("DEPRECATION")
+        context.resources.displayMetrics.widthPixels
+    }
+
+    private fun screenHeight(): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        runCatching { context.display?.mode?.physicalHeight }
+            .getOrNull() ?: context.resources.displayMetrics.heightPixels
+    } else {
+        @Suppress("DEPRECATION")
+        context.resources.displayMetrics.heightPixels
+    }
 
     private var downRawX = 0f
     private var downRawY = 0f
@@ -99,8 +114,8 @@ class CircleFloatingView(
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = screenWidth - halfCirclePx
-            y = screenHeight / 2 - halfCirclePx
+            x = screenWidth() - halfCirclePx
+            y = screenHeight() / 2 - halfCirclePx
         }
 
         setupTouchListeners()
@@ -163,7 +178,7 @@ class CircleFloatingView(
         handler.removeCallbacksAndMessages(null)
 
         val currentX = layoutParams?.x ?: 0
-        val targetX = if (isOnRightEdge) screenWidth - halfCirclePx else -halfCirclePx
+        val targetX = if (isOnRightEdge) screenWidth() - halfCirclePx else -halfCirclePx
 
         val animator = ValueAnimator.ofInt(currentX, targetX)
         animator.duration = ANIMATION_DURATION
@@ -201,7 +216,7 @@ class CircleFloatingView(
                     }
                     if (isDragging) {
                         layoutParams?.x = downParamX + dx.toInt()
-                        layoutParams?.y = (downParamY + dy.toInt()).coerceIn(0, screenHeight - circleSizePx)
+                        layoutParams?.y = (downParamY + dy.toInt()).coerceIn(0, screenHeight() - circleSizePx)
                         updateLayout()
                     }
                     true
@@ -227,9 +242,9 @@ class CircleFloatingView(
     private fun snapToEdge() {
         val currentX = layoutParams?.x ?: 0
         val centerX = currentX + halfCirclePx
-        isOnRightEdge = centerX > screenWidth / 2
+        isOnRightEdge = centerX > screenWidth() / 2
 
-        val targetX = if (isOnRightEdge) screenWidth - halfCirclePx else -halfCirclePx
+        val targetX = if (isOnRightEdge) screenWidth() - halfCirclePx else -halfCirclePx
 
         val animator = ValueAnimator.ofInt(currentX, targetX)
         animator.duration = ANIMATION_DURATION
@@ -256,7 +271,7 @@ class CircleFloatingView(
 
             val expandedWidthPx = (EXPANDED_WIDTH * density).toInt()
             val currentX = layoutParams?.x ?: 0
-            val targetX = if (isOnRightEdge) screenWidth - expandedWidthPx else 0
+            val targetX = if (isOnRightEdge) screenWidth() - expandedWidthPx else 0
 
             val animator = ValueAnimator.ofInt(currentX, targetX)
             animator.duration = ANIMATION_DURATION
@@ -283,7 +298,7 @@ class CircleFloatingView(
 
     private fun ensureExpandedPosition() {
         val expandedWidthPx = (EXPANDED_WIDTH * density).toInt()
-        layoutParams?.x = if (isOnRightEdge) screenWidth - expandedWidthPx else 0
+        layoutParams?.x = if (isOnRightEdge) screenWidth() - expandedWidthPx else 0
         updateLayout()
     }
 

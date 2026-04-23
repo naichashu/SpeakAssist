@@ -9,10 +9,20 @@ import com.example.network.dto.ChatRequest
 import com.example.network.dto.ContentItem
 import com.example.network.dto.ImageUrl
 import com.example.speakassist.R
+import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser.parseString
+import kotlinx.coroutines.suspendCancellableCoroutine
+import okhttp3.Call
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import okhttp3.logging.HttpLoggingInterceptor
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.io.ByteArrayOutputStream
@@ -32,6 +42,9 @@ class ModelClient(
     private val apiKey: String
 ) {
     private val api: AutoGLMApi
+    private val okHttpClient: OkHttpClient
+    private val requestBaseUrl: String
+    private var currentCall: okhttp3.Call? = null
 
     companion object {
         const val TAG = "ModelClient"
@@ -43,7 +56,7 @@ class ModelClient(
         }
 
         // 创建OkHttpClient实例
-        val client = OkHttpClient.Builder()
+        val okHttpClientInstance = OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
             .addInterceptor { chain ->
                 val original = chain.request()
@@ -57,16 +70,18 @@ class ModelClient(
                 chain.proceed(request)
             }
             .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(120, TimeUnit.SECONDS)
-            .writeTimeout(120, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
             .build()
 
         // 验证URL格式
-        val validatedBaseUrl = checkAndFixUrl(baseUrl)
+        requestBaseUrl = checkAndFixUrl(baseUrl).ensureTrailingSlash()
+
+        okHttpClient = okHttpClientInstance
 
         val retrofit = Retrofit.Builder()
-            .baseUrl(validatedBaseUrl.ensureTrailingSlash())
-            .client(client)
+            .baseUrl(requestBaseUrl)
+            .client(okHttpClientInstance)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
@@ -88,34 +103,94 @@ class ModelClient(
     }
 
     /**
-     * 发送请求并解析响应
+     * 发送请求并解析响应。内部用 suspendCancellableCoroutine 包装 OkHttp Call，
+     * 这样协程被取消时 HTTP 请求也会被真正中断。
      */
     suspend fun request(
         messages: List<ChatMessage>,
         modelName: String
-    ): ModelResponse {
-        val request = ChatRequest(
-            model = modelName,
-            messages = messages,
-            maxTokens = 3000,
-            temperature = 0.0,
-            topP = 0.85,
-            frequencyPenalty = 0.2,
-            stream = false
-        )
+    ): ModelResponse = suspendCancellableCoroutine { continuation ->
+        try {
+            val httpRequest = ChatRequest(
+                model = modelName,
+                messages = messages,
+                maxTokens = 3000,
+                temperature = 0.0,
+                topP = 0.85,
+                frequencyPenalty = 0.2,
+                stream = false
+            )
+            val jsonBody = Gson().toJson(httpRequest)
+            val requestBody: RequestBody = jsonBody.toRequestBody("application/json".toMediaType())
 
-        val response = api.chatCompletion(request)
-        Log.d(TAG, "响应内容: ${response}")
+            val httpRequestBuilder = Request.Builder()
+                .url("${requestBaseUrl}chat/completions")
+                .header("Authorization", if (apiKey.isBlank() || apiKey == "EMPTY") "Bearer EMPTY" else "Bearer $apiKey")
+                .post(requestBody)
 
-        // 检查响应是否成功
-        if (response.isSuccessful && response.body() != null) {
-            val responseBody = response.body()!!
-            // 获取响应结果
-            val context = responseBody.choices.firstOrNull()?.message?.content ?: ""
-            return parseResponse(context)
-        } else {
-            throw Exception("请求失败: ${response.code()} ${response.message()}")
+            currentCall = okHttpClient.newCall(httpRequestBuilder.build())
+            currentCall?.enqueue(object : okhttp3.Callback {
+                override fun onFailure(call: Call, e: java.io.IOException) {
+                    Log.e(TAG, "请求失败: ${e.message}")
+                    if (continuation.isActive) {
+                        continuation.resumeWithException(e)
+                    }
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    try {
+                        if (!response.isSuccessful) {
+                            Log.e(TAG, "请求失败: ${response.code} ${response.message}")
+                            if (continuation.isActive) {
+                                continuation.resumeWithException(Exception("请求失败: ${response.code} ${response.message}"))
+                            }
+                            return
+                        }
+                        val bodyStr = response.body?.string() ?: ""
+                        Log.d(TAG, "响应内容: $bodyStr")
+
+                        val json = parseString(bodyStr).asJsonObject
+                        val content = json
+                            .getAsJsonArray("choices")
+                            ?.firstOrNull()
+                            ?.asJsonObject
+                            ?.getAsJsonObject("message")
+                            ?.get("content")
+                            ?.asString ?: ""
+
+                        if (continuation.isActive) {
+                            continuation.resume(parseResponse(content))
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "解析响应异常: ${e.message}")
+                        if (continuation.isActive) {
+                            continuation.resumeWithException(e)
+                        }
+                    } finally {
+                        response.close()
+                    }
+                }
+            })
+
+            // 协程被取消时中断 HTTP 请求
+            continuation.invokeOnCancellation {
+                currentCall?.cancel()
+                Log.d(TAG, "HTTP 请求已被取消")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "构建请求异常: ${e.message}")
+            if (continuation.isActive) {
+                continuation.resumeWithException(e)
+            }
         }
+    }
+
+    /**
+     * 取消当前正在进行的 HTTP 请求。
+     */
+    fun cancelCurrentRequest() {
+        currentCall?.cancel()
+        Log.d(TAG, "用户取消请求")
     }
 
     /**
@@ -127,8 +202,13 @@ class ModelClient(
         var thinking = ""
         var action = ""
 
-        // 处理特殊格式
-        if (content.contains("finish(message=")) {
+        // <answer> 是 system prompt 要求的规范格式，优先匹配；
+        // 否则再退化到 finish()/do() 的函数调用形式兜底。
+        if (content.contains("<answer>")) {
+            val parts = content.split("<answer>", limit = 2)
+            thinking = parts[0].trim()
+            action = parts[1].replace("</answer>", "").trim()
+        } else if (content.contains("finish(message=")) {
             val parts = content.split("finish(message=", limit = 2)
             thinking = parts[0].trim()
             action = "finish(message=" + parts[1]
@@ -136,15 +216,6 @@ class ModelClient(
             val parts = content.split("do(action=", limit = 2)
             thinking = parts[0].trim()
             action = "do(action=" + parts[1]
-        } else if (content.contains("<answer>")) {
-            val parts = content.split("<answer>", limit = 2)
-            thinking = parts[0]
-                .replace("<think>", "")
-                .replace("</think>", "")
-                .replace("<redacted_reasoning>", "")
-                .replace("</redacted_reasoning>", "")
-                .trim()
-            action = parts[1].replace("</answer>", "").trim()
         } else {
             action = content.trim()
         }
@@ -162,9 +233,50 @@ class ModelClient(
                 }
             }
         }
+
+        thinking = sanitizeThinking(thinking)
+
         Log.d(TAG, "解析后响应内容:thinking=${thinking.take(80)}, action=${action.take(80)}")
 
         return ModelResponse(thinking = thinking, action = action)
+    }
+
+    /**
+     * 清理 thinking：剥离残留标签，并在括号严重不平衡时整段丢弃。
+     * 模型偶发会吐 `[{'type':' text', ' text="..."` 这类破碎片段作为"推理"，
+     * 若原样写入 messageContext，下一轮模型会把自己破碎的历史当格式模板照抄，
+     * 造成级联解析失败。
+     */
+    private fun sanitizeThinking(raw: String): String {
+        if (raw.isBlank()) return ""
+        val stripped = raw
+            .replace("<think>", "")
+            .replace("</think>", "")
+            .replace("<answer>", "")
+            .replace("</answer>", "")
+            .replace("<redacted_reasoning>", "")
+            .replace("</redacted_reasoning>", "")
+            .trim()
+        if (stripped.isEmpty()) return ""
+
+        var paren = 0
+        var bracket = 0
+        var brace = 0
+        for (c in stripped) {
+            when (c) {
+                '(' -> paren++
+                ')' -> paren--
+                '[' -> bracket++
+                ']' -> bracket--
+                '{' -> brace++
+                '}' -> brace--
+            }
+        }
+        if (paren != 0 || bracket != 0 || brace != 0) {
+            Log.w(TAG, "thinking 含不平衡括号，丢弃以防上下文污染: ${stripped.take(120)}")
+            return ""
+        }
+        return stripped
     }
 
     /**
@@ -207,9 +319,12 @@ class ModelClient(
      */
     fun createSystemMessage(): ChatMessage {
         val systemPrompt = buildSystemPrompt()
+        // 纯文本 content，与原参考项目一致；autoglm-phone 训练分布里
+        // system/assistant 的 content 是字符串，模型看到数组结构时会把自己的
+        // 输出也写成 `[{'type':...,'text':...}]` 造成解析失败。
         return ChatMessage(
             role = "system",
-            content = listOf(ContentItem(type = "text", text = systemPrompt))
+            content = systemPrompt
         )
     }
 
@@ -274,7 +389,10 @@ class ModelClient(
     }
 
     fun removeImagesFromMessage(message: ChatMessage): ChatMessage {
-        val textOnlyContent = message.content.filter { it.type == "text" }
+        // 只有数组形态的 content 才可能含图片；字符串 content 原样返回。
+        val content = message.content
+        if (content !is List<*>) return message
+        val textOnlyContent = content.filterIsInstance<ContentItem>().filter { it.type == "text" }
         return ChatMessage(
             role = message.role,
             content = textOnlyContent
@@ -300,12 +418,16 @@ class ModelClient(
 
     /**
      * 创建助手消息（添加到上下文）
+     *
+     * 关键：content 必须是纯字符串，不能包成 `[{"type":"text","text":...}]`。
+     * autoglm-phone 会参照历史 assistant 消息的结构组织自己的输出，若历史用了
+     * 数组 content，模型会仿写 `[{'type':' text', ' text="..."})` 导致后续解析全挂。
      */
     fun createAssistantMessage(thinking: String, action: String): ChatMessage {
         val content = "<think>$thinking</think><answer>$action</answer>"
         return ChatMessage(
             role = "assistant",
-            content = listOf(ContentItem(type = "text", text = content))
+            content = content
         )
     }
 

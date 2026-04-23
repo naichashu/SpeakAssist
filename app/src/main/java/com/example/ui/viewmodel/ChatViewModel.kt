@@ -123,7 +123,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         while (stepCount < maxSteps) {
             // 检查取消请求
             if (_cancelRequested.value) {
-                Log.d(TAG, "任务被用户取消")
+                Log.d(TAG, "任务被用户取消，中断 HTTP 请求")
+                modelClient?.cancelCurrentRequest()
                 return finishTask(sessionId, false, "用户手动取消任务", isCancelled = true)
             }
 
@@ -179,10 +180,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             // 调用模型（使用消息上下文）
             val messagesList: List<ChatMessage> = messageContext.toList()
-            val response = client.request(
-                messages = messagesList,
-                modelName = modelName
-            )
+            val response = try {
+                client.request(messages = messagesList, modelName = modelName)
+            } catch (e: Exception) {
+                // HTTP 请求被取消时，cancelCurrentRequest() 会触发 onFailure，
+                // resumeWithException 把 Canceled IOException 抛到这里。
+                // 此时若 cancel 标志已设，直接退出循环。
+                if (_cancelRequested.value) {
+                    Log.d(TAG, "HTTP 请求被取消，结束任务")
+                    return finishTask(sessionId, false, "用户手动取消任务", isCancelled = true)
+                }
+                throw e
+            }
 
             Log.d(
                 TAG,
@@ -246,16 +255,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             // 错误处理
             if (!result.success) {
-                val errorText = buildString {
-                    appendLine("上一步你的输出错误，${result.message?.take(200)}")
-                    appendLine("请严格按照系统提示中的格式，仅输出以下两种之一：")
-                    appendLine("1. do(action=\"...\", ...)")
-                    appendLine("2. finish(message=\"...\")")
-                    appendLine("不要输出列表、自然语言说明或其他非规范格式。")
-                    appendLine()
-                    append("你上一次的输出是：")
-                    append(response.action.take(200))
+                // 把刚刚写入历史的畸形 assistant 消息改写成占位符，
+                // 避免模型在下一轮对话里把自己错误的输出当成格式模板照抄，引发级联失败。
+                if (messageContext.isNotEmpty() && messageContext.last().role == "assistant") {
+                    messageContext[messageContext.size - 1] =
+                        client.createAssistantMessage("", "[上一轮输出格式错误，已过滤]")
                 }
+
+                val errorText = """
+                    上一轮响应无法解析为有效动作。请严格按下面格式重新输出当前步骤的操作，禁止输出列表/字典/自然语言：
+                    <think>简要理由</think><answer>do(action=..., ...)</answer>
+                    或
+                    <think>简要理由</think><answer>finish(message=...)</answer>
+                """.trimIndent()
                 messageContext.add(
                     ChatMessage(
                         role = "user",

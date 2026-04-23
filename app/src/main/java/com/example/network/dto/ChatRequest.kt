@@ -19,7 +19,11 @@ data class ChatRequest(
 
 data class ChatMessage(
     val role: String,
-    val content: List<ContentItem>
+    // 接受 String 或 List<ContentItem>：
+    //  - 带图片的 user 消息用 List<ContentItem>（图片 + 文本分项）
+    //  - 纯文本的 system/assistant 消息用 String（与 OpenAI / autoglm-phone 训练分布一致，
+    //    避免模型看到数组结构的 assistant 历史后把自己的输出也写成 [{'type':...}]）
+    val content: Any
 )
 
 data class ContentItem(
