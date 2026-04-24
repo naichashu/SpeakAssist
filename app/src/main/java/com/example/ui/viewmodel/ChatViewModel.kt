@@ -426,15 +426,44 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * 从AI响应中提取操作类型
-     * 匹配模式：action="Type", action=Type, "type", action="type" 等各种变体
+     * 从AI响应中提取操作类型。
+     * 匹配模式：action="Type", action="Long Press", action=Type 等各种变体。
+     *
+     * 关键：正则必须支持带引号的值内部可以有空格（如 "Long Press", "Double Tap"），
+     * 否则含空格的 action 会被截断为 unknown，导致错误反馈不精准。
      */
     private fun extractActionType(action: String): String {
         val lower = action.lowercase()
-        // 匹配 action=xxx 或 action="xxx" 的模式（xxx 可能是 Type, type, Tap, tap 等）
-        val actionMatch = Regex("""action=["']?([^"'\s,)]+)["']?""", RegexOption.IGNORE_CASE).find(lower)
-        val actionValue = actionMatch?.groupValues?.getOrNull(1)?.lowercase()
-        return when (actionValue) {
+
+        // 优先匹配带引号的值（引号内可以有空格）
+        val quotedMatch = Regex(
+            """action\s*=\s*["']([^"']+)["']""",
+            RegexOption.IGNORE_CASE
+        ).find(lower)
+
+        if (quotedMatch != null) {
+            return normalizeActionType(quotedMatch.groupValues[1])
+        }
+
+        // 其次匹配无引号的值（遇到空白/逗号/括号停止）
+        val bareMatch = Regex(
+            """action\s*=\s*([^\s,)]+)""",
+            RegexOption.IGNORE_CASE
+        ).find(lower)
+
+        return if (bareMatch != null) {
+            normalizeActionType(bareMatch.groupValues[1])
+        } else {
+            "unknown"
+        }
+    }
+
+    /**
+     * 将原始 action 值归一化为标准类型。
+     * 覆盖所有可能的变体：全小写/驼峰/带空格/带下划线。
+     */
+    private fun normalizeActionType(raw: String): String {
+        return when (raw.trim()) {
             "finish" -> "finish"
             "launch" -> "launch"
             "tap" -> "tap"
@@ -443,8 +472,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             "back" -> "back"
             "home" -> "home"
             "wait" -> "wait"
-            "longpress", "long press" -> "longpress"
-            "doubletap", "double tap" -> "doubletap"
+            "longpress", "long press", "long_press" -> "longpress"
+            "doubletap", "double tap", "double_tap" -> "doubletap"
             else -> "unknown"
         }
     }

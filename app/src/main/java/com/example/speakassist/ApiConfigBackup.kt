@@ -23,7 +23,9 @@ object ApiConfigBackup {
     private val gson = GsonBuilder().setPrettyPrinting().create()
 
     data class BackupDto(
-        @SerializedName("version") val version: Int = 0,
+        // nullable Int：null = 未知版本（不是我们的导出文件或格式损坏），
+        // 与故意写 version=0 的歧义文件区分开来
+        @SerializedName("version") val version: Int? = null,
         @SerializedName("zhipu_api_key") val zhipuApiKey: String = "",
         @SerializedName("baidu_api_key") val baiduApiKey: String = "",
         @SerializedName("baidu_secret_key") val baiduSecretKey: String = ""
@@ -62,8 +64,8 @@ object ApiConfigBackup {
             }
         } ?: throw IllegalStateException("无法打开输入流")
 
-        // version 默认 0 → JSON 里缺字段或完全不是我们的格式
-        if (dto.version == 0) {
+        // null = JSON 里缺字段或完全不是我们的格式
+        if (dto.version == null) {
             throw BackupFormatException("不是 SpeakAssist 导出的配置文件")
         }
         if (dto.version != CURRENT_VERSION) {

@@ -23,8 +23,6 @@ import okhttp3.Response
 import okhttp3.logging.HttpLoggingInterceptor
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
 import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -41,7 +39,6 @@ class ModelClient(
     baseUrl: String,
     private val apiKey: String
 ) {
-    private val api: AutoGLMApi
     private val okHttpClient: OkHttpClient
     private val requestBaseUrl: String
     private var currentCall: okhttp3.Call? = null
@@ -55,8 +52,7 @@ class ModelClient(
             level = HttpLoggingInterceptor.Level.BODY
         }
 
-        // 创建OkHttpClient实例
-        val okHttpClientInstance = OkHttpClient.Builder()
+        okHttpClient = OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
             .addInterceptor { chain ->
                 val original = chain.request()
@@ -74,20 +70,8 @@ class ModelClient(
             .writeTimeout(30, TimeUnit.SECONDS)
             .build()
 
-        // 验证URL格式
         requestBaseUrl = checkAndFixUrl(baseUrl).ensureTrailingSlash()
-
-        okHttpClient = okHttpClientInstance
-
-        val retrofit = Retrofit.Builder()
-            .baseUrl(requestBaseUrl)
-            .client(okHttpClientInstance)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-
-        Log.d(TAG, "创建的API接口实例")
-
-        api = retrofit.create(AutoGLMApi::class.java)
+        Log.d(TAG, "ModelClient 初始化，baseUrl=$requestBaseUrl")
     }
 
     /**
