@@ -1,5 +1,8 @@
 package com.example.input
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
@@ -26,11 +29,41 @@ class AccessibilityTextInput(
         val arguments = Bundle().apply {
             putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
         }
-        val success = target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
-        return if (success) {
-            TextInputResult(true, "直接输入文本成功：$text")
-        } else {
-            TextInputResult(false, "当前输入框不支持直接设置文本")
+        val setTextSuccess = target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+        if (setTextSuccess) {
+            return TextInputResult(true, "直接输入文本成功：$text")
+        }
+
+        // setText 失败，尝试 Clipboard Paste 作为 fallback（绕过 WeChat 等 App 对 setText 的拦截）
+        val pasteSuccess = tryClipboardPaste(text)
+        if (pasteSuccess) {
+            return TextInputResult(true, "剪贴板粘贴输入成功：$text")
+        }
+
+        return TextInputResult(false, "当前输入框不支持直接设置文本，也无法通过剪贴板粘贴输入")
+    }
+
+    private fun tryClipboardPaste(text: String): Boolean {
+        try {
+            val clipboard = service.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("SpeakAssist", text)
+            clipboard.setPrimaryClip(clip)
+
+            val pasteArgs = Bundle().apply {
+                putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, 0)
+                putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, 0)
+            }
+
+            val root = service.rootInActiveWindow ?: return false
+            val target = findInputTarget(root) ?: return false
+            val success = target.performAction(AccessibilityNodeInfo.ACTION_PASTE, pasteArgs)
+
+            val clearClip = ClipData.newPlainText("SpeakAssist", "")
+            clipboard.setPrimaryClip(clearClip)
+
+            return success
+        } catch (e: Exception) {
+            return false
         }
     }
 

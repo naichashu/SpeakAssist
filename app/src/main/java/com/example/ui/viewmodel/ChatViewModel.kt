@@ -14,6 +14,7 @@ import com.example.network.dto.ChatMessage
 import com.example.network.dto.ContentItem
 import com.example.register.ActionExecutor
 import com.example.register.ActionResult
+import com.example.input.TextInputMode
 import com.example.register.AppRegister
 import com.example.service.MyAccessibilityService
 import kotlinx.coroutines.delay
@@ -31,6 +32,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     // 维护对话上下文（消息历史，仅在运行时有效，包含图片等大数据）
     private val messageContext = mutableListOf<ChatMessage>()
+
+    // 跟踪当前 step 内同一 action type 的连续失败次数，用于硬拦截
+    // 每个 step 开始时重置
+    private val stepActionFailures = mutableMapOf<String, Int>()
+    private val MAX_STEP_ACTION_FAILURES = 2
 
     /**
      * 任务执行结果
@@ -118,9 +124,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         var stepCount = 0
         val maxSteps = 50
-        var errorSteps = 0
+        var retryCount = 0
+        val maxRetries = 4
         val compressionLevel = 80
         while (stepCount < maxSteps) {
+            // 每个 step 开始时重置失败计数器
+            stepActionFailures.clear()
+
+            // 读取当前输入模式
+            val inputMode = SettingsPrefs.textInputMode(getApplication()).first()
+
             // 检查取消请求
             if (_cancelRequested.value) {
                 Log.d(TAG, "任务被用户取消，中断 HTTP 请求")
@@ -220,12 +233,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             val displayMetrics = getApplication<Application>().resources.displayMetrics
 
-            //  执行动作
-            val result = actionExecutor?.execute(
-                response.action,
-                screenShot?.width ?: displayMetrics.widthPixels,
-                screenShot?.height ?: displayMetrics.heightPixels
-            ) ?: ActionResult(false, "ActionExecutor is null")
+            // 提取 action type 用于失败跟踪
+            val actionType = extractActionType(response.action)
+            val stepFails = stepActionFailures[actionType] ?: 0
+
+            // 连续失败拦截：同一 action type 失败 2 次就不再执行
+            val result: ActionResult = if (stepFails >= MAX_STEP_ACTION_FAILURES) {
+                Log.d(TAG, "action=$actionType 当前step内已失败 $stepFails 次，跳过执行")
+                ActionResult(false, "该动作连续失败，强制换策略")
+            } else {
+                actionExecutor?.execute(
+                    response.action,
+                    screenShot?.width ?: displayMetrics.widthPixels,
+                    screenShot?.height ?: displayMetrics.heightPixels
+                ) ?: ActionResult(false, "ActionExecutor is null")
+            }
 
             Log.d(TAG, "执行动作结果: ${result.success}: ${result.message}")
 
@@ -236,7 +258,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             )
 
             // 保存步骤到数据库
-            val actionType = extractActionType(response.action)
             val actionDesc = result.message ?: response.action.take(100)
             db.taskStepDao().insert(
                 TaskStep(
@@ -255,6 +276,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             // 错误处理
             if (!result.success) {
+                // Type 失败 + 当前是 DIRECT 模式 + 不可访问错误 → 立即结束并提示用户切换输入法
+                if (actionType == "type" && inputMode == TextInputMode.DIRECT &&
+                    (result.message ?: "").contains("不可访问")) {
+                    Log.w(TAG, "Type在DIRECT模式下被拦截，立即结束并提示用户")
+                    Toast.makeText(
+                        getApplication(),
+                        "输入失败：微信等应用会拦截直接输入。请去「设置」→「输入方式」切换到「输入法模拟」模式后重试。",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return finishTask(
+                        sessionId, false,
+                        "输入失败：当前「直接设置文本」模式被微信拦截。请去「设置」→「输入方式」切换到「输入法模拟」模式，然后重新执行任务。"
+                    )
+                }
+
                 // 把刚刚写入历史的畸形 assistant 消息改写成占位符，
                 // 避免模型在下一轮对话里把自己错误的输出当成格式模板照抄，引发级联失败。
                 if (messageContext.isNotEmpty() && messageContext.last().role == "assistant") {
@@ -262,12 +298,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         client.createAssistantMessage("", "[上一轮输出格式错误，已过滤]")
                 }
 
-                val errorText = """
-                    上一轮响应无法解析为有效动作。请严格按下面格式重新输出当前步骤的操作，禁止输出列表/字典/自然语言：
-                    <think>简要理由</think><answer>do(action=..., ...)</answer>
-                    或
-                    <think>简要理由</think><answer>finish(message=...)</answer>
-                """.trimIndent()
+                // 构建具体错误消息：包含失败原因和替代策略指导
+                val errorText = buildErrorText(actionType, result.message ?: "未知错误", inputMode)
+
                 messageContext.add(
                     ChatMessage(
                         role = "user",
@@ -279,11 +312,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     )
                 )
-                Log.d(TAG, "已向模型反馈格式错误，要求按规范重新输出动作")
+                Log.d(TAG, "已向模型反馈失败: ${result.message}")
 
-                errorSteps++
+                retryCount++
+                stepActionFailures[actionType] = stepFails + 1
 
-                if (errorSteps > 4) {
+                if (retryCount > maxRetries) {
                     Log.e(TAG, "重试超过上限，结束流程: ${result.message}")
                     return finishTask(sessionId, false, "连续错误超过上限: ${result.message}")
                 }
@@ -292,8 +326,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 delay(1000)
                 continue
             } else {
-                // 成功-重试计数
-                errorSteps = 0
+                // 成功-重置重试计数
+                retryCount = 0
+                stepActionFailures.remove(actionType)
             }
 
             val settleDelayMs = result.actionDetail?.waitMs ?: 1000L
@@ -303,6 +338,49 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
         Log.w("ChatViewModel", "达到最大步数限制")
         return finishTask(sessionId, false, "达到最大步数限制($maxSteps)")
+    }
+
+    /**
+     * 构建具体的错误反馈文本，包含失败原因和替代策略
+     */
+    private fun buildErrorText(actionType: String, errorMessage: String, inputMode: TextInputMode): String {
+        return when {
+            actionType == "type" && errorMessage.contains("不可访问") && inputMode == TextInputMode.DIRECT -> {
+                """
+                    上一轮动作执行失败: $errorMessage
+
+                    原因分析：当前使用的是「直接设置文本」模式，微信等应用会拦截 setText 操作导致输入失败。
+
+                    请先去侧栏「设置」→「输入方式」切换到「输入法模拟」模式，然后重新执行任务。
+                    切换后需要将系统输入法切换为 SpeakAssist 输入法（切换方式：长按地球键选择 SpeakAssist 输入法）。
+                """.trimIndent()
+            }
+            actionType == "type" && errorMessage.contains("不可访问") -> {
+                """
+                    上一轮动作执行失败: $errorMessage
+
+                    原因分析：微信搜索框会拦截 setText 直接输入操作，必须换策略。
+
+                    请按以下步骤执行：
+                    1. 先执行 Back 退出搜索页
+                    2. 点击底部「通讯录」tab 切换到通讯录页面
+                    3. 在通讯录列表中找到"文件传输助手"（向上滑动查找）
+                    4. 点击进入聊天
+                    5. 点击输入框
+                    6. 使用 Type 输入消息内容
+
+                    禁止重复执行 Type 动作。
+                """.trimIndent()
+            }
+            else -> {
+                """
+                    上一轮动作执行失败: $errorMessage
+
+                    请分析失败原因，选择 Back/换坐标 Tap/换方向 Swipe/finish 中的一种。
+                    禁止重复执行同样的失败动作。
+                """.trimIndent()
+            }
+        }
     }
 
     /**
@@ -349,20 +427,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * 从AI响应中提取操作类型
+     * 匹配模式：action="Type", action=Type, "type", action="type" 等各种变体
      */
     private fun extractActionType(action: String): String {
         val lower = action.lowercase()
-        return when {
-            lower.contains("finish(") -> "finish"
-            lower.contains("\"launch\"") || lower.contains("action=\"launch\"") -> "launch"
-            lower.contains("\"tap\"") || lower.contains("action=\"tap\"") -> "tap"
-            lower.contains("\"type\"") || lower.contains("action=\"type\"") -> "type"
-            lower.contains("\"swipe\"") || lower.contains("action=\"swipe\"") -> "swipe"
-            lower.contains("\"back\"") || lower.contains("action=\"back\"") -> "back"
-            lower.contains("\"home\"") || lower.contains("action=\"home\"") -> "home"
-            lower.contains("\"wait\"") || lower.contains("action=\"wait\"") -> "wait"
-            lower.contains("\"long press\"") -> "longpress"
-            lower.contains("\"double tap\"") -> "doubletap"
+        // 匹配 action=xxx 或 action="xxx" 的模式（xxx 可能是 Type, type, Tap, tap 等）
+        val actionMatch = Regex("""action=["']?([^"'\s,)]+)["']?""", RegexOption.IGNORE_CASE).find(lower)
+        val actionValue = actionMatch?.groupValues?.getOrNull(1)?.lowercase()
+        return when (actionValue) {
+            "finish" -> "finish"
+            "launch" -> "launch"
+            "tap" -> "tap"
+            "type" -> "type"
+            "swipe" -> "swipe"
+            "back" -> "back"
+            "home" -> "home"
+            "wait" -> "wait"
+            "longpress", "long press" -> "longpress"
+            "doubletap", "double tap" -> "doubletap"
             else -> "unknown"
         }
     }
