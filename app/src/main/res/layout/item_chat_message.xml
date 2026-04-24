@@ -13,7 +13,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:maxWidth="280dp"
-        android:maxLines="5"
+        android:maxLines="500"
         android:ellipsize="end"
         android:padding="12dp"
         android:textSize="14sp"
