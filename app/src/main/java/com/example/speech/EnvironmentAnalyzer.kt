@@ -104,13 +104,16 @@ class EnvironmentAnalyzer(
     }
 
     private fun updateNoiseLevel(ste: Double, read: Int, report: NoiseReport) {
+        // 前 10 帧 history 不足（isReliable=false），静默跳过更新，indicator 保持 LOW。
+        // 这样避免每次新录音开头 10 帧都闪 HIGH/LOW。
+        if (!report.isReliable()) return
+
         val sampleCount = read / 2
         val rms = AdaptiveVad.steToRms(ste, sampleCount)
         val floorRms = adaptiveVad.getNoiseFloorRms(sampleCount)
         val snr = if (floorRms > 0) rms / floorRms else 1.0
 
         _noiseLevel.value = when {
-            !report.isReliable() -> NoiseLevel.LOW
             report.noiseType == NoiseType.MECHANICAL ||
                 report.noiseType == NoiseType.WIND_WHITE -> NoiseLevel.HIGH
             snr > 10 -> NoiseLevel.LOW

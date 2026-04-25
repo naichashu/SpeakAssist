@@ -2,9 +2,12 @@ package com.example.speakassist
 
 import android.Manifest
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.animation.ArgbEvaluator
+import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -35,10 +38,12 @@ import com.example.service.MyInputMethodService
 import com.example.speech.BaiduSpeechConfig
 import com.example.speech.BaiduSpeechCredentials
 import com.example.speech.BaiduSpeechManager
+import com.example.speech.NoiseLevel
 import com.example.ui.adapter.ChatMessageAdapter
 import com.example.ui.viewmodel.ChatViewModel
 import com.google.android.material.navigation.NavigationView
 import com.google.android.material.textfield.TextInputEditText
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -65,6 +70,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var emptyState: View                                       // 空状态视图
     private lateinit var etInput: TextInputEditText                             // 文本输入框
     private lateinit var btnVoice: ImageButton                                  // 语音按钮
+    private lateinit var noiseIndicator: View                                   // 录音时叠加在按钮右上的噪声指示圆点
+    private var voiceBackgroundAnimator: ValueAnimator? = null               // 按钮背景渐变动画
+    private var voiceButtonBackground: GradientDrawable? = null                // 按钮背景，用于程序化控制渐变色
+    private var noiseLevelJob: Job? = null                                     // 噪声级别订阅协程，onDestroy 时取消
     private lateinit var btnSend: ImageButton                                    // 发送按钮
 
     // ==================== 数据和适配器 ====================
@@ -142,6 +151,7 @@ class MainActivity : AppCompatActivity() {
         emptyState = findViewById(R.id.emptyState)
         etInput = findViewById(R.id.etInput)
         btnVoice = findViewById(R.id.btnVoice)
+        noiseIndicator = findViewById(R.id.noiseIndicator)
         btnSend = findViewById(R.id.btnSend)
     }
 
@@ -312,9 +322,31 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onVolumeChanged(volume: Int) {
-                // 可以用来显示音量动画
+                // 录音中按音量轻微缩放按钮，让"正在录音"更直观
+                runOnUiThread {
+                    if (!btnVoice.isActivated) return@runOnUiThread
+                    val scale = 1f + (volume.coerceIn(0, 100) / 250f)  // 1.0–1.4
+                    btnVoice.animate().scaleX(scale).scaleY(scale)
+                        .setDuration(80L).start()
+                }
             }
         })
+
+        // 订阅噪声级别 → 右上小圆点变色（低通滤波：颜色稳定 1.5s 才切，避免说话时 SNR 跳变导致频繁闪烁）
+        noiseLevelJob?.cancel()
+        noiseLevelJob = lifecycleScope.launch {
+            var lastAppliedLevel: NoiseLevel? = null
+            var stableSince = 0L
+            speechManager.noiseLevel.collect { level ->
+                if (level == lastAppliedLevel) {
+                    stableSince = System.currentTimeMillis()
+                } else if (System.currentTimeMillis() - stableSince >= 1500L) {
+                    stableSince = System.currentTimeMillis()
+                    lastAppliedLevel = level
+                    runOnUiThread { applyNoiseLevel(level) }
+                }
+            }
+        }
 
         // 语音按钮点击事件
         btnVoice.setOnClickListener {
@@ -497,8 +529,75 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateVoiceButtonState(isListening: Boolean) {
-        btnVoice.isActivated = isListening
-        btnVoice.alpha = if (isListening) 0.5f else 1.0f
+        voiceBackgroundAnimator?.cancel()
+
+        if (isListening) {
+            val redColor = ContextCompat.getColor(this, R.color.voice_button_recording)
+            voiceButtonBackground = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(android.graphics.Color.TRANSPARENT)
+                setPadding(10, 10, 10, 10)
+            }
+            btnVoice.background = voiceButtonBackground
+            btnVoice.imageTintList = android.content.res.ColorStateList.valueOf(
+                ContextCompat.getColor(this, R.color.white)
+            )
+
+            voiceBackgroundAnimator = ValueAnimator.ofObject(
+                ArgbEvaluator(), android.graphics.Color.TRANSPARENT, redColor
+            ).apply {
+                duration = 300L
+                addUpdateListener { animator ->
+                    voiceButtonBackground?.setColor(animator.animatedValue as Int)
+                }
+                start()
+            }
+
+            noiseIndicator.visibility = View.VISIBLE
+            applyNoiseLevel(speechManager.noiseLevel.value)
+        } else {
+            val redColor = ContextCompat.getColor(this, R.color.voice_button_recording)
+            val bg = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(redColor)
+                setPadding(10, 10, 10, 10)
+            }
+            btnVoice.background = bg
+            voiceButtonBackground = bg
+
+            voiceBackgroundAnimator = ValueAnimator.ofObject(
+                ArgbEvaluator(), redColor, android.graphics.Color.TRANSPARENT
+            ).apply {
+                duration = 200L
+                addUpdateListener { animator ->
+                    voiceButtonBackground?.setColor(animator.animatedValue as Int)
+                }
+                addListener(object : android.animation.AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: android.animation.Animator) {
+                        // 保留 GradientDrawable，颜色已是透明
+                        voiceButtonBackground?.setColor(android.graphics.Color.TRANSPARENT)
+                    }
+                })
+                start()
+            }
+
+            btnVoice.imageTintList = null
+            btnVoice.animate().cancel()
+            btnVoice.scaleX = 1f
+            btnVoice.scaleY = 1f
+            noiseIndicator.visibility = View.GONE
+        }
+    }
+
+    private fun applyNoiseLevel(level: NoiseLevel) {
+        if (!::noiseIndicator.isInitialized) return
+        val colorRes = when (level) {
+            NoiseLevel.LOW -> R.color.noise_low
+            NoiseLevel.MEDIUM -> R.color.noise_medium
+            NoiseLevel.HIGH -> R.color.noise_high
+        }
+        noiseIndicator.backgroundTintList =
+            android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, colorRes))
     }
 
     /**
@@ -628,5 +727,7 @@ class MainActivity : AppCompatActivity() {
         MyAccessibilityService.suspendFloatingOverlays()
         super.onDestroy()
         speechManager.destroy()
+        noiseLevelJob?.cancel()
+        voiceBackgroundAnimator?.cancel()
     }
 }

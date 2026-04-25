@@ -40,16 +40,18 @@ class SpectralNoiseDetector(private val historySize: Int = 20) {
         var highFreqEnergy = 0L
         var totalEnergy = 0L
         var prevSample = 0
+        var hasPrevSample = false
         var i = 0
         while (i + 1 < read) {
             val sample = ((buffer[i].toInt() and 0xFF) or
                 (buffer[i + 1].toInt() shl 8)).toShort().toInt()
             totalEnergy += sample.toLong() * sample.toLong()
-            if (i > 0) {
+            if (hasPrevSample) {
                 val diff = (sample - prevSample).toLong()
                 highFreqEnergy += diff * diff
             }
             prevSample = sample
+            hasPrevSample = true
             i += 2
         }
         return if (totalEnergy > 0)

@@ -49,6 +49,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
     private var executionStateJob: Job? = null
     private var postTaskCleanup: Runnable? = null
     private var wakeWordManager: WakeWordListeningManager? = null
+    private var noiseLevelJob: Job? = null
 
     fun init() {
         speechManager.setCallback(object : BaiduSpeechManager.Callback {
@@ -56,9 +57,11 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                 handler.post {
                     circleView?.showListening()
                 }
+                startNoiseLevelObserver()
             }
 
             override fun onResult(text: String) {
+                stopNoiseLevelObserver()
                 if (text.isBlank()) {
                     // 防御：Baidu 理论上已经把空结果转成 onError，这里兜底避免空文本派发任务
                     Log.w(TAG, "onResult 收到空文本，按错误处理")
@@ -81,6 +84,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
             }
 
             override fun onError(message: String) {
+                stopNoiseLevelObserver()
                 handler.post {
                     circleView?.showRecognitionError(message)
                 }
@@ -90,9 +94,15 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                 }, ERROR_DISPLAY_DURATION)
             }
 
-            override fun onEnd() = Unit
+            override fun onEnd() {
+                stopNoiseLevelObserver()
+            }
 
-            override fun onVolumeChanged(volume: Int) = Unit
+            override fun onVolumeChanged(volume: Int) {
+                handler.post {
+                    circleView?.pulseLogo(volume)
+                }
+            }
         })
 
         initWakeWordManager()
@@ -472,5 +482,28 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                 }
             }
         }
+    }
+
+    /** 录音开始后启动噪声级别订阅，让悬浮窗右上小圆点反映环境噪声。 */
+    private fun startNoiseLevelObserver() {
+        noiseLevelJob?.cancel()
+        noiseLevelJob = scope.launch {
+            var lastAppliedLevel: com.example.speech.NoiseLevel? = null
+            var stableSince = 0L
+            speechManager.noiseLevel.collect { level ->
+                if (level == lastAppliedLevel) {
+                    stableSince = System.currentTimeMillis()
+                } else if (System.currentTimeMillis() - stableSince >= 1500L) {
+                    stableSince = System.currentTimeMillis()
+                    lastAppliedLevel = level
+                    handler.post { circleView?.setNoiseLevel(level) }
+                }
+            }
+        }
+    }
+
+    private fun stopNoiseLevelObserver() {
+        noiseLevelJob?.cancel()
+        noiseLevelJob = null
     }
 }

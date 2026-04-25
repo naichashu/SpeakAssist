@@ -16,4 +16,12 @@
 
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- 噪声级别指示色（与 success/warning/error 同色但语义独立，便于后续单独调整） -->
+    <color name="noise_low">#4CAF50</color>
+    <color name="noise_medium">#FFC107</color>
+    <color name="noise_high">#F44336</color>
+
+    <!-- 录音按钮强对比状态 -->
+    <color name="voice_button_recording">#F44336</color>
 </resources>

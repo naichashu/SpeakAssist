@@ -2,6 +2,7 @@ package com.example.floating
 
 import android.animation.ValueAnimator
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
@@ -16,7 +17,9 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import com.example.speakassist.R
+import com.example.speech.NoiseLevel
 import kotlin.math.abs
 
 /**
@@ -53,6 +56,7 @@ class CircleFloatingView(
     private var circleContainer: FrameLayout? = null
     private var expandedContainer: LinearLayout? = null
     private var expandedLogoView: ImageView? = null
+    private var noiseIndicator: View? = null
     private var tvStatus: TextView? = null
 
     private var currentState = State.HIDDEN
@@ -96,6 +100,7 @@ class CircleFloatingView(
         circleContainer = rootView?.findViewById(R.id.circleContainer)
         expandedContainer = rootView?.findViewById(R.id.expandedContainer)
         expandedLogoView = rootView?.findViewById(R.id.ivExpandedLogo)
+        noiseIndicator = rootView?.findViewById(R.id.floatingNoiseIndicator)
         tvStatus = rootView?.findViewById(R.id.tvStatus)
         tvStatus?.isSelected = true
 
@@ -154,6 +159,7 @@ class CircleFloatingView(
             return
         }
         expandForState(State.LISTENING, "正在听需求...")
+        noiseIndicator?.visibility = View.VISIBLE
     }
 
     fun showRecognitionResult(text: String) {
@@ -162,6 +168,8 @@ class CircleFloatingView(
         circleContainer?.visibility = View.GONE
         tvStatus?.text = text
         currentState = State.RESULT
+        noiseIndicator?.visibility = View.GONE
+        clearLogoPulse()
     }
 
     fun showRecognitionError(message: String) {
@@ -170,12 +178,48 @@ class CircleFloatingView(
         circleContainer?.visibility = View.GONE
         tvStatus?.text = if (message.isBlank()) "识别失败" else message
         currentState = State.ERROR
+        noiseIndicator?.visibility = View.GONE
+        clearLogoPulse()
+    }
+
+    /** 录音中根据噪声级别切换右上小圆点颜色。LISTENING 之外调用无效。 */
+    fun setNoiseLevel(level: NoiseLevel) {
+        val indicator = noiseIndicator ?: return
+        if (currentState != State.LISTENING) return
+        val colorRes = when (level) {
+            NoiseLevel.LOW -> R.color.noise_low
+            NoiseLevel.MEDIUM -> R.color.noise_medium
+            NoiseLevel.HIGH -> R.color.noise_high
+        }
+        indicator.backgroundTintList =
+            ColorStateList.valueOf(ContextCompat.getColor(context, colorRes))
+    }
+
+    /** 录音中按音量做轻微律动，让"正在录音"更直观。volume 范围 0–100。 */
+    fun pulseLogo(volume: Int) {
+        val logo = expandedLogoView ?: return
+        if (currentState != State.LISTENING) return
+        val scale = 1f + (volume.coerceIn(0, 100) / 250f)
+        logo.animate().cancel()
+        logo.scaleX = 1f
+        logo.scaleY = 1f
+        logo.animate().scaleX(scale).scaleY(scale).setDuration(80L).start()
+    }
+
+    private fun clearLogoPulse() {
+        expandedLogoView?.let {
+            it.animate().cancel()
+            it.scaleX = 1f
+            it.scaleY = 1f
+        }
     }
 
     fun collapseToIdle() {
         if (currentState == State.COLLAPSING || currentState == State.IDLE || currentState == State.HIDDEN) return
         currentState = State.COLLAPSING
         handler.removeCallbacksAndMessages(null)
+        noiseIndicator?.visibility = View.GONE
+        clearLogoPulse()
 
         val currentX = layoutParams?.x ?: 0
         val targetX = if (isOnRightEdge) screenWidth() - halfCirclePx else -halfCirclePx
