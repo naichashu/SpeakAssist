@@ -1,5 +1,6 @@
 package com.example.ui.adapter
 
+import android.os.Parcelable
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.ViewGroup
@@ -33,16 +34,44 @@ class ChatMessageAdapter : ListAdapter<ChatMessageItem, ChatMessageAdapter.Messa
         val isUser: Boolean,
         val timestamp: Long = System.currentTimeMillis(),
         val id: Long = nextId()
-    ) {
+    ) : Parcelable {
         companion object {
             private val idCounter = java.util.concurrent.atomic.AtomicLong(0)
             private fun nextId(): Long = idCounter.incrementAndGet()
+
+            @JvmField
+            val CREATOR = object : android.os.Parcelable.Creator<ChatMessageItem> {
+                override fun createFromParcel(parcel: android.os.Parcel): ChatMessageItem {
+                    return ChatMessageItem(
+                        content = parcel.readString() ?: "",
+                        isUser = parcel.readByte() != 0.toByte(),
+                        timestamp = parcel.readLong(),
+                        id = parcel.readLong()
+                    )
+                }
+
+                override fun newArray(size: Int): Array<ChatMessageItem?> {
+                    return arrayOfNulls(size)
+                }
+            }
         }
+
+        override fun writeToParcel(parcel: android.os.Parcel, flags: Int) {
+            parcel.writeString(content)
+            parcel.writeByte(if (isUser) 1 else 0)
+            parcel.writeLong(timestamp)
+            parcel.writeLong(id)
+        }
+
+        override fun describeContents(): Int = 0
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MessageViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_chat_message, parent, false)
+        view.findViewById<android.widget.TextView>(R.id.tvMessageContent)?.apply {
+            maxLines = 500
+        }
         return MessageViewHolder(view)
     }
 

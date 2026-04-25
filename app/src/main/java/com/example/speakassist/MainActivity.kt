@@ -101,6 +101,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    companion object {
+        private const val KEY_CHAT_MESSAGES = "chat_messages"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         MyAccessibilityService.resumeFloatingOverlays()
@@ -121,6 +125,15 @@ class MainActivity : AppCompatActivity() {
 
         // 设置聊天列表
         setupChatList()
+
+        // Activity 重建时恢复聊天记录（避免横竖屏切换丢失）
+        savedInstanceState?.getParcelableArrayList<ChatMessageAdapter.ChatMessageItem>(KEY_CHAT_MESSAGES)?.let { restored ->
+            chatMessages.clear()
+            chatMessages.addAll(restored)
+            chatAdapter.submitList(chatMessages.toList())
+            rvChatMessages.scrollToPosition(chatMessages.size - 1)
+            updateEmptyState()
+        }
 
         // 设置语音识别
         setupSpeechManager()
@@ -724,10 +737,15 @@ class MainActivity : AppCompatActivity() {
      * 释放语音管理器资源
      */
     override fun onDestroy() {
-        MyAccessibilityService.suspendFloatingOverlays()
         super.onDestroy()
         speechManager.destroy()
         noiseLevelJob?.cancel()
         voiceBackgroundAnimator?.cancel()
+        MyAccessibilityService.suspendFloatingOverlays()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putParcelableArrayList(KEY_CHAT_MESSAGES, ArrayList(chatMessages))
     }
 }

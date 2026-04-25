@@ -31,6 +31,12 @@ class FloatingWindowManager(private val service: AccessibilityService) {
         private const val TAG = "FloatingWindowManager"
         private const val RESULT_DISPLAY_DURATION = 800L
         private const val ERROR_DISPLAY_DURATION = 1500L
+        /**
+         * 跨 FloatingWindowManager 实例的可见状态。
+         * 当 AccessibilityService 重建（旋转等）时，新实例据此恢复悬浮窗。
+         */
+        private var companionShouldShowCircle = false
+        private var companionWasTaskRunning = false
     }
 
     private val windowManager = service.getSystemService(AccessibilityService.WINDOW_SERVICE) as WindowManager
@@ -109,6 +115,14 @@ class FloatingWindowManager(private val service: AccessibilityService) {
         observeSettings()
         observeExecutionState()
         observeBaiduCredentials()
+
+        // 延迟检查恢复：给 Flow 一帧时间发出初始值，再判断是否该恢复悬浮窗
+        handler.post {
+            Log.d(TAG, "init 恢复检查: companionShouldShowCircle=$companionShouldShowCircle companionWasTaskRunning=$companionWasTaskRunning isCircleEnabled=$isCircleEnabled")
+            if (companionShouldShowCircle && isCircleEnabled && !companionWasTaskRunning) {
+                showCircle()
+            }
+        }
         Log.d(TAG, "FloatingWindowManager 已初始化")
     }
 
@@ -125,6 +139,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
     }
 
     private fun initWakeWordManager() {
+        wakeWordManager?.destroy()
         wakeWordManager = WakeWordListeningManager(service)
         if (wakeWordManager?.init() == true) {
             wakeWordManager?.listener = object : WakeWordListeningManager.Listener {
@@ -168,26 +183,24 @@ class FloatingWindowManager(private val service: AccessibilityService) {
     }
 
     fun resumeOverlays() {
-        handler.post {
-            if (!overlaysSuspended) return@post
-            overlaysSuspended = false
-            if (isCircleEnabled && !isTaskRunning) {
-                showCircle()
-            }
-            startWakeWordListening()
+        overlaysSuspended = false
+        if (isCircleEnabled && !isTaskRunning) {
+            showCircle()
         }
+        startWakeWordListening()
     }
 
     fun suspendOverlays() {
+        overlaysSuspended = true
         handler.post {
-            overlaysSuspended = true
             stopWakeWordListening()
             hideAllOverlays()
         }
     }
 
     private fun hideAllOverlays() {
-        handler.removeCallbacksAndMessages(null)
+        companionShouldShowCircle = false
+        companionWasTaskRunning = false
         speechManager.cancel()
         circleView?.destroy()
         circleView = null
@@ -200,39 +213,37 @@ class FloatingWindowManager(private val service: AccessibilityService) {
 
     fun showCircle() {
         if (isTaskRunning || overlaysSuspended) return
-        handler.post {
-            if (circleView?.isShowing() == true) {
-                return@post
-            }
-            circleView?.destroy()
-            circleView = CircleFloatingView(service, windowManager, object : CircleFloatingView.Listener {
-                override fun onCircleClicked() {
-                    if (speechManager.isListening()) {
-                        cancelSpeechRecognition()
-                    } else {
-                        stopWakeWordListening()
-                        speechManager.start()
-                    }
-                }
-
-                override fun onExpandedCancelClicked() {
-                    cancelSpeechRecognition()
-                }
-            })
-            circleView?.create()
-            startWakeWordListening()
-            Log.d(TAG, "圆形悬浮窗已显示")
+        // 视图创建必须在主线程同步执行，不能依赖 handler post
+        //（因为 hideAllOverlays 不会 post，所有操作都是同步的）
+        companionShouldShowCircle = true
+        if (circleView?.isShowing() == true) {
+            return
         }
+        circleView?.destroy()
+        circleView = CircleFloatingView(service, windowManager, object : CircleFloatingView.Listener {
+            override fun onCircleClicked() {
+                if (speechManager.isListening()) {
+                    cancelSpeechRecognition()
+                } else {
+                    stopWakeWordListening()
+                    speechManager.start()
+                }
+            }
+
+            override fun onExpandedCancelClicked() {
+                cancelSpeechRecognition()
+            }
+        })
+        circleView?.create()
+        Log.d(TAG, "圆形悬浮窗已显示")
     }
 
     fun hideCircle() {
-        handler.post {
-            speechManager.cancel()
-            circleView?.destroy()
-            circleView = null
-            stopWakeWordListening()
-            Log.d(TAG, "圆形悬浮窗已隐藏")
-        }
+        speechManager.cancel()
+        circleView?.destroy()
+        circleView = null
+        stopWakeWordListening()
+        Log.d(TAG, "圆形悬浮窗已隐藏")
     }
 
     private fun cancelSpeechRecognition() {
@@ -444,6 +455,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
     }
 
     private fun observeExecutionState() {
+        executionStateJob?.cancel()
         executionStateJob = scope.launch {
             ChatViewModel.executionState.collectLatest { state ->
                 when {
@@ -451,6 +463,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                         postTaskCleanup?.let { handler.removeCallbacks(it) }
                         postTaskCleanup = null
                         isTaskRunning = true
+                        companionWasTaskRunning = true
                         hideCircle()
                         showExecutionCard(state.taskTitle)
                         showExecutionCancelChip()
@@ -460,6 +473,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                     }
                     state.isCompleted && isTaskRunning -> {
                         isTaskRunning = false
+                        companionWasTaskRunning = false
                         hideExecutionCancelChip()
                         val title = when {
                             state.isCancelled -> "任务已取消"
