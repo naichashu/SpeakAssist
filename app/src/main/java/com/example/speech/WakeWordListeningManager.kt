@@ -57,9 +57,11 @@ class WakeWordListeningManager(private val context: Context) {
             "小露小露"
         )
 
-        // 静音检测参数
-        private const val SILENCE_THRESHOLD = 500
+        // 监听超时时间（无任何唤醒词命中后多久重置 Vosk 内部状态）
         private const val MAX_LISTENING_MS = 15000L
+
+        // 预学习最长等待时间（正常 ~500ms 完成）
+        private const val PRE_LEARNING_TIMEOUT_MS = 2000L
 
         /**
          * 生成 Vosk grammar JSON：形如 `["小 噜 小 噜","小 陆 小 陆",...,"[unk]"]`。
@@ -85,6 +87,7 @@ class WakeWordListeningManager(private val context: Context) {
     private var listeningJob: Job? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val handler = Handler(Looper.getMainLooper())
+    private val environmentAnalyzer = EnvironmentAnalyzer()
 
     var listener: Listener? = null
 
@@ -230,6 +233,27 @@ class WakeWordListeningManager(private val context: Context) {
         Log.d(TAG, "进入唤醒词检测循环")
         updateState(State.IDLE)
 
+        // 预学习阶段：测量环境噪声基底，用于初始化 AdaptiveVad 和动态调整匹配置信度
+        environmentAnalyzer.startPreLearning()
+        val preLearningStart = System.currentTimeMillis()
+        try {
+            while (audioRecord?.recordingState == AudioRecord.RECORDSTATE_RECORDING &&
+                environmentAnalyzer.isPreLearningInProgress() &&
+                System.currentTimeMillis() - preLearningStart < PRE_LEARNING_TIMEOUT_MS) {
+                val read = audioRecord?.read(buffer, 0, buffer.size) ?: -1
+                if (read <= 0) {
+                    delay(10)
+                    continue
+                }
+                environmentAnalyzer.processFrame(buffer, read)
+                delay(10)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        }
+        val noiseFloorRms = environmentAnalyzer.getInitialNoiseFloorRms()
+        Log.d(TAG, "唤醒预学习完成，基底 RMS=${"%.1f".format(noiseFloorRms)}")
+
         try {
             loop@ while (audioRecord?.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
                 val read = audioRecord?.read(buffer, 0, buffer.size) ?: -1
@@ -238,18 +262,20 @@ class WakeWordListeningManager(private val context: Context) {
                     continue
                 }
 
-                recognizer.acceptWaveForm(buffer, read)
-                val partialResult = voskManager?.getPartialResult().orEmpty()
-                val rms = calculateRms(buffer, read)
-
-                if (rms > SILENCE_THRESHOLD) {
+                // Layer 1/2：判断是否语音帧（不过滤），用于重置超时计时
+                val frameResult = environmentAnalyzer.processFrame(buffer, read)
+                if (frameResult?.isSpeechCandidate == true) {
                     hasSpeechDetected = true
                     listeningStartTime = System.currentTimeMillis()
                 }
 
+                // Vosk 始终接收完整帧 —— grammar 是真正的人声过滤器，不能跳帧
+                recognizer.acceptWaveForm(buffer, read)
+                val partialResult = voskManager?.getPartialResult().orEmpty()
+
                 if (partialResult.isNotBlank()) {
                     Log.d(TAG, "唤醒检测 partial: $partialResult")
-                    if (containsWakeWord(partialResult)) {
+                    if (containsWakeWord(partialResult, noiseFloorRms)) {
                         Log.i(TAG, "唤醒词检测到: $partialResult")
                         recognizer.reset()
                         handler.post { listener?.onWakeWordDetected() }
@@ -293,38 +319,56 @@ class WakeWordListeningManager(private val context: Context) {
         Log.d(TAG, "录音已停止")
     }
 
-    private fun calculateRms(buffer: ByteArray, read: Int): Double {
-        if (read <= 0) return 0.0
 
-        var sum = 0L
-        var i = 0
-        while (i + 1 < read) {
-            val sample = (buffer[i].toInt() and 0xFF) or (buffer[i + 1].toInt() shl 8)
-            val signedSample = if (sample > 32767) sample - 65536 else sample
-            sum += signedSample.toLong() * signedSample.toLong()
-            i += 2
-        }
-        val count = read / 2
-        return if (count > 0) kotlin.math.sqrt(sum.toDouble() / count) else 0.0
-    }
 
-    private fun containsWakeWord(text: String): Boolean {
-        val lowerText = text.lowercase(Locale.getDefault())
 
-        for (wakeWord in WAKE_WORDS) {
-            if (lowerText.contains(wakeWord.lowercase(Locale.getDefault()))) {
-                return true
-            }
-        }
 
+    /**
+     * 唤醒词匹配。先做严格 contains，再用 LCS 模糊匹配。
+     * 模糊阈值根据环境噪声基底动态调整：嘈杂环境放宽（减漏检），安静环境收紧（减误检）。
+     */
+    private fun containsWakeWord(text: String, noiseFloorRms: Double): Boolean {
         val cleanText = text.replace(Regex("[\\s\\p{Punct}]"), "")
+            .lowercase(Locale.getDefault())
+        if (cleanText.isEmpty()) return false
+
+        // 严格匹配优先
         for (wakeWord in WAKE_WORDS) {
             val cleanWake = wakeWord.replace(Regex("[\\s\\p{Punct}]"), "")
-            if (cleanText.contains(cleanWake, ignoreCase = true)) {
-                return true
-            }
+                .lowercase(Locale.getDefault())
+            if (cleanText.contains(cleanWake)) return true
         }
 
+        val confidenceThreshold = when {
+            noiseFloorRms > 300 -> 0.7
+            noiseFloorRms > 150 -> 0.8
+            else -> 0.9
+        }
+
+        // 模糊匹配：最长公共子串占唤醒词长度的比例
+        for (wakeWord in WAKE_WORDS) {
+            val cleanWake = wakeWord.replace(Regex("[\\s\\p{Punct}]"), "")
+                .lowercase(Locale.getDefault())
+            if (cleanWake.isEmpty()) continue
+            val lcsLen = longestCommonSubstring(cleanText, cleanWake)
+            if (lcsLen.toDouble() / cleanWake.length >= confidenceThreshold) return true
+        }
         return false
+    }
+
+    private fun longestCommonSubstring(a: String, b: String): Int {
+        if (a.isEmpty() || b.isEmpty()) return 0
+        val dp = IntArray(b.length + 1)
+        var maxLen = 0
+        for (i in 1..a.length) {
+            var prev = 0
+            for (j in 1..b.length) {
+                val cur = dp[j]
+                dp[j] = if (a[i - 1] == b[j - 1]) prev + 1 else 0
+                if (dp[j] > maxLen) maxLen = dp[j]
+                prev = cur
+            }
+        }
+        return maxLen
     }
 }

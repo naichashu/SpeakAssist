@@ -13,6 +13,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
@@ -55,6 +56,11 @@ class BaiduSpeechManager(private val context: Context) {
 
     private var audioRecord: AudioRecord? = null
     private var recordingJob: Job? = null
+    private val environmentAnalyzer = EnvironmentAnalyzer()
+
+    /** 当前环境噪声级别，UI 在录音期间订阅。 */
+    val noiseLevel: StateFlow<NoiseLevel> get() = environmentAnalyzer.noiseLevel
+
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
@@ -254,40 +260,49 @@ class BaiduSpeechManager(private val context: Context) {
         val audioData = ByteArrayOutputStream()
         val buffer = ByteArray(bufferSize)
 
+        // 环境预学习：测量噪声基底，用于动态选择 VAD 参数。最长 1200ms（4 帧预热 + 16 帧累计）。
+        environmentAnalyzer.startPreLearning()
+        val preLearningStart = System.currentTimeMillis()
+        while (isSessionActive(sessionId) && isRecording &&
+            environmentAnalyzer.isPreLearningInProgress() &&
+            System.currentTimeMillis() - preLearningStart < 1200) {
+            val read = audioRecord?.read(buffer, 0, buffer.size) ?: -1
+            if (read > 0) {
+                audioData.write(buffer, 0, read)
+                environmentAnalyzer.processFrame(buffer, read)
+            } else if (read < 0) {
+                break
+            }
+        }
+        val noiseFloorRms = environmentAnalyzer.getInitialNoiseFloorRms()
+        val vadParams = selectVadParams(noiseFloorRms)
+        Log.d(TAG, "语音输入预学习完成，基底 RMS=${"%.1f".format(noiseFloorRms)}, " +
+            "VAD=${vadParams}")
+
         // 录音循环
         val startTime = System.currentTimeMillis()
-        val maxDuration = 60_000L
-
-        // 静音检测参数（VAD）
-        val silenceThreshold = 800
-        val silenceDuration = 1500L
-        val minSpeechDuration = 300L
         var hasSpeech = false
         var silenceStartTime = 0L
 
-        while (isSessionActive(sessionId) && isRecording && System.currentTimeMillis() - startTime < maxDuration) {
+        while (isSessionActive(sessionId) && isRecording &&
+            System.currentTimeMillis() - startTime < vadParams.maxRecordingDurationMs) {
             val read = audioRecord?.read(buffer, 0, buffer.size) ?: -1
             if (read > 0) {
                 audioData.write(buffer, 0, read)
 
-                // 计算音量（RMS）
-                var sum = 0L
-                for (i in 0 until read step 2) {
-                    if (i + 1 < read) {
-                        val sample = (buffer[i].toInt() and 0xFF) or (buffer[i + 1].toInt() shl 8)
-                        sum += sample.toLong() * sample.toLong()
-                    }
-                }
-                val rms = kotlin.math.sqrt(sum.toDouble() / (read / 2))
+                // 用 EnvironmentAnalyzer 同时算 STE / 更新基底 / 跑频域分析（驱动 noiseLevel）
+                val frameResult = environmentAnalyzer.processFrame(buffer, read)
+                val ste = frameResult?.ste ?: AdaptiveVad.calculateSTE(buffer, read)
+                val rms = AdaptiveVad.steToRms(ste, read / 2)
                 val volume = (rms / 32768 * 100).toInt().coerceIn(0, 100)
 
                 withContext(Dispatchers.Main) {
                     callback?.onVolumeChanged(volume)
                 }
 
-                // 静音检测逻辑
+                // 静音检测逻辑（动态阈值）
                 val now = System.currentTimeMillis()
-                if (rms > silenceThreshold) {
+                if (rms > vadParams.energyThreshold) {
                     hasSpeech = true
                     silenceStartTime = 0L
                 } else if (hasSpeech) {
@@ -295,7 +310,8 @@ class BaiduSpeechManager(private val context: Context) {
                         silenceStartTime = now
                     }
                     val elapsed = now - startTime
-                    if (elapsed > minSpeechDuration && now - silenceStartTime >= silenceDuration) {
+                    if (elapsed > vadParams.minSpeechDurationMs &&
+                        now - silenceStartTime >= vadParams.silenceDurationMs) {
                         Log.d(TAG, "检测到静音停顿，自动停止录音")
                         isRecording = false
                         break
@@ -443,5 +459,27 @@ class BaiduSpeechManager(private val context: Context) {
 
     private fun isSessionActive(sessionId: Int): Boolean {
         return sessionCounter.get() == sessionId && recordingJob?.isActive == true
+    }
+
+    private fun selectVadParams(noiseFloorRms: Double): VadParams = when {
+        noiseFloorRms < 100 -> VadParams.QUIET
+        noiseFloorRms < 300 -> VadParams.NORMAL
+        else -> VadParams.NOISY
+    }
+}
+
+/**
+ * 场景自适应的 VAD 参数。环境越嘈杂，能量阈值越高、静音判定越宽松，避免噪声打断录音。
+ */
+private data class VadParams(
+    val energyThreshold: Double,
+    val minSpeechDurationMs: Long,
+    val silenceDurationMs: Long,
+    val maxRecordingDurationMs: Long
+) {
+    companion object {
+        val QUIET = VadParams(300.0, 200L, 1200L, 30_000L)
+        val NORMAL = VadParams(800.0, 300L, 1500L, 45_000L)
+        val NOISY = VadParams(1200.0, 500L, 2500L, 60_000L)
     }
 }
