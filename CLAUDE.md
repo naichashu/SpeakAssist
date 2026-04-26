@@ -59,7 +59,7 @@ Key control limits in the loop: max 50 steps, up to 4 consecutive action-format 
 ### Main subsystems
 
 - `app/src/main/java/com/example/speakassist/MainActivity.kt`: main chat-style UI, permission banner, drawer navigation, voice/text input, and display of final task results.
-- `app/src/main/java/com/example/network/ModelClient.kt`: Retrofit/OkHttp client for Zhipu AutoGLM, prompt assembly, screenshot JPEG/base64 conversion, and response parsing.
+- `app/src/main/java/com/example/network/ModelClient.kt`: pure OkHttp client for Zhipu AutoGLM. Uses `suspendCancellableCoroutine` so HTTP requests are cancelled when the coroutine is cancelled. System prompt + multimodal user message assembly, screenshot JPEG/base64 conversion, and response parsing into `thinking` + `action`. Handles `<answer>` tag parsing, `finish()`/`do()` function-call fallback, and JSON extraction.
 - `app/src/main/java/com/example/register/ActionExecutor.kt`: action parsing and execution bridge. Coordinates are model-facing thousandths of screen width/height and are converted to absolute pixels here.
 - `app/src/main/java/com/example/service/MyAccessibilityService.kt`: global automation surface for gestures, global back/home actions, current-app tracking, screenshot capture, and floating-window lifecycle.
 - `app/src/main/java/com/example/service/MyInputMethodService.kt`: custom IME used for model-driven text input.
@@ -67,7 +67,7 @@ Key control limits in the loop: max 50 steps, up to 4 consecutive action-format 
 - `app/src/main/java/com/example/speech/`: speech I/O. Two complementary engines, each with a single responsibility:
   - `BaiduSpeechManager` — online REST recognizer (百度语音). Handles all general-purpose command recognition: button-initiated capture from `MainActivity`, floating-window button capture, and the post-wake-word command capture. Returns null for empty/blank `result` so callers see `onError("未识别到语音")` instead of dispatching empty text.
   - `VoskRecognizerManager` + `WakeWordListeningManager` — offline keyword-spotter only. `WakeWordListeningManager` builds a JSON grammar from the wake-word list (e.g. `["小 噜 小 噜", ..., "[unk]"]`) and passes it to Vosk's 3-arg `Recognizer` constructor, which **constrains output to the grammar phrases or `[unk]`** — Vosk cannot emit arbitrary Chinese text. On wake-word detection it fires `onWakeWordDetected()`, breaks the loop, and releases the mic. It does NOT do command recognition; callers are expected to start `BaiduSpeechManager` next.
-  - Vosk requires the `vosk-model-small-cn-0.22` folder under `app/src/main/assets/`; on first use it is copied to app internal storage. Grammar support requires a lookahead model (the folder must contain `graph/Gr.fst` + `graph/HCLr.fst`, not a prebuilt `HCLG.fst`). The wake-word loop is gated by `SettingsPrefs.voiceWakeEnabled`.
+  - Vosk requires the `vosk-model-cn-0.1` folder under `app/src/main/assets/`. The model is copied to app internal storage on first use. Grammar support requires a lookahead model (the folder must contain `graph/Gr.fst` + `graph/HCLr.fst`, not a prebuilt `HCLG.fst`). The wake-word loop is gated by `SettingsPrefs.voiceWakeEnabled`. **Vosk grammar constraint is the human-voice filter** — the recognizer cannot emit arbitrary text, only grammar phrases or `[unk]`. **Do not skip frames before sending to Vosk** — `acceptWaveForm` requires every frame to maintain its state machine.
 
 ### Persistence and UI state
 
@@ -105,6 +105,29 @@ Important implementation detail: the prompt still mentions a broader action voca
 
 If you change the prompt contract, keep `strings.xml`, `ModelClient.parseResponse()`, and `ActionExecutor` aligned.
 
+### Noise detection architecture
+
+The codebase has a noise detection architecture documented in `docs/语音噪声检测技术方案.md`. The key design decisions:
+
+- **No skip-frames before Vosk**: Vosk needs every frame. Noise detection must not skip `acceptWaveForm` calls.
+- **Adaptive VAD**: Instead of fixed RMS thresholds (500 for wake word, 800 for voice input), the plan uses exponential moving average (EMA) to track noise floor and dynamically adjust thresholds.
+- **Two scenes, different strategies**: Wake word scene — pre-learn environment, adapt matching threshold, keep Vosk full-frame; Voice input scene — pre-learn environment, adapt VAD params (energy threshold / silence duration), expose noise level to UI.
+- **Zero new dependencies**: All noise detection is pure Kotlin algorithms (STE + ZCR + low-frequency ratio). No new native libraries or ML models.
+
+### ActionExecutor state management
+
+`ActionExecutor` maintains per-step failure tracking. After any step, if an action fails it:
+1. Writes a placeholder assistant message (prevents model from treating its own bad output as a template)
+2. Feeds back a structured error text to the model with correction guidance
+3. Increments the failure counter for that action type
+4. Retries with a different approach (up to 4 total retries per session)
+
+The `extractActionType` regex uses separate patterns for quoted values (spaces allowed inside quotes) vs bare values (stops at whitespace). The `normalizeActionType` function handles all spelling variants: `longpress`/`long_press`/`long press` → `longpress`, `doubletap`/`double_tap`/`double tap` → `doubletap`.
+
+### Text input dispatch
+
+`TextInputExecutor` routes model `type` actions. When in `direct` mode, `AccessibilityTextInput` tries `ACTION_SET_TEXT` first, then falls back to clipboard paste (for WeChat and similar apps that intercept `setText`). When in `ime_simulation` mode, `ImeTextInput` simulates keystrokes through the custom IME. **`AccessibilityTextInput` uses stack-based iteration with explicit node recycling** — the old recursive DFS leaked `AccessibilityNodeInfo` (native memory, not JVM GC managed). Do not revert to recursive traversal.
+
 ## Platform and runtime notes
 
 - Target SDK 36, min SDK 24, Kotlin/JVM target 11.
@@ -116,6 +139,19 @@ If you change the prompt contract, keep `strings.xml`, `ModelClient.parseRespons
 
 - `README.md` is a short Chinese overview of the Android app. `CLAUDE.md` (this file) is the authoritative architectural reference.
 - `SpeakAssist_UI设计文档.md` is the UI design source of truth.
-- `docs/语音唤醒词技术方案.md` documents the offline wake-word design used by `WakeWordListeningManager`.
-- `docs/代码审查修复记录_2026-04-21.md` logs the bugs found and fixed in a 2026-04-21 code-review pass (截图崩溃/主线程阻塞/空结果派发/悬浮窗残留 Runnable 等). Read this before touching `ChatViewModel`, `FloatingWindowManager`, or the input-dispatch layer to avoid reintroducing resolved issues.
-- No Cursor rules, `.cursorrules`, or Copilot instruction files are present in the repository at the time of writing.
+- `docs/` contains all technical design documents:
+  - `语音唤醒词技术方案.md` — offline wake-word design used by `WakeWordListeningManager`
+  - `语音噪声检测技术方案.md` — adaptive VAD and noise detection (已实现: `EnvironmentAnalyzer` 用于唤醒词场景，`AdaptiveVad` 用于语音输入场景)
+  - `查看型任务_finish过早与输出过短修复方案.md` — 查看型任务的 finish 条件修正和结构化消息规范
+  - `微信文件传输助手问题分析记录_2026-04-24.md` — 微信搜索框无法直接 setText 的根因分析
+  - `代码审查报告_2026-04-25.md` — 2026-04-25 代码审查问题列表
+- No Cursor rules, `.cursorrules`, or Copilot instruction files are present in the repository.
+
+## Known memory/safety invariants
+
+These are invariants that must not be violated when modifying code:
+
+- **`AccessibilityNodeInfo`**: Every node obtained via `getChild()`, `findFocus()`, or `rootInActiveWindow` must be closed/recycled exactly once. `findFirstEditableNode` always closes `root` during traversal; caller closes `root` or the returned target depending on the path. Use `it !== root` identity check before closing to avoid double-close.
+- **Coroutines**: Any `CoroutineScope` created for a long-lived component must be cancelled in `destroy()`. `BaiduSpeechManager` uses a class-level `scope` (SupervisorJob + IO) cancelled in `destroy()`.
+- **`Handler`/`Runnable`**: When reassigning a `Handler` postDelayed Runnable (e.g. `postTaskCleanup`), always remove the old one before assigning the new one.
+- **`ValueAnimator`**: Before starting a new animator, always cancel the previous one to prevent animation conflicts and stale callbacks.
