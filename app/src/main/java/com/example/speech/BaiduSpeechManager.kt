@@ -13,6 +13,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -56,6 +58,8 @@ class BaiduSpeechManager(private val context: Context) {
 
     private var audioRecord: AudioRecord? = null
     private var recordingJob: Job? = null
+    /** 类级别的 scope，destroy() 时统一取消，避免每次 start() 新建独立 scope */
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val environmentAnalyzer = EnvironmentAnalyzer()
 
     /** 当前环境噪声级别，UI 在录音期间订阅。 */
@@ -108,7 +112,7 @@ class BaiduSpeechManager(private val context: Context) {
         }
 
         val sessionId = sessionCounter.incrementAndGet()
-        recordingJob = CoroutineScope(Dispatchers.IO).launch {
+        recordingJob = scope.launch {
             try {
                 startRecordingAndRecognize(sessionId)
             } catch (e: CancellationException) {
@@ -150,6 +154,7 @@ class BaiduSpeechManager(private val context: Context) {
         isListening = false
         isRecording = false
         stopRecordingAndCancel()
+        scope.cancel()
         callback = null
     }
 
@@ -157,14 +162,20 @@ class BaiduSpeechManager(private val context: Context) {
      * 停止录音并取消协程
      */
     private fun stopRecordingAndCancel() {
+        val record = audioRecord
+        audioRecord = null
         try {
-            audioRecord?.stop()
-            audioRecord?.release()
-            audioRecord = null
+            record?.stop()
         } catch (e: Exception) {
-            Log.e(TAG, "停止录音失败", e)
+            Log.e(TAG, "停止录音失败（设备状态异常）", e)
+        }
+        try {
+            record?.release()
+        } catch (e: Exception) {
+            Log.e(TAG, "释放录音资源失败", e)
         }
         isListening = false
+        isRecording = false
         recordingJob?.cancel()
         recordingJob = null
     }
@@ -323,10 +334,15 @@ class BaiduSpeechManager(private val context: Context) {
         }
 
         // 停止录音设备
+        val record = audioRecord
+        audioRecord = null
         try {
-            audioRecord?.stop()
-            audioRecord?.release()
-            audioRecord = null
+            record?.stop()
+        } catch (e: Exception) {
+            Log.e(TAG, "停止录音失败", e)
+        }
+        try {
+            record?.release()
         } catch (e: Exception) {
             Log.e(TAG, "释放录音资源失败", e)
         }

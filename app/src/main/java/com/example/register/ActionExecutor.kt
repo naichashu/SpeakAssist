@@ -46,6 +46,153 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         private const val INPUT_SETTLE_DELAY_MS = 1200L
         private const val SWIPE_SETTLE_DELAY_MS = 1200L
         private const val NAVIGATION_SETTLE_DELAY_MS = 1200L
+
+        /**
+         * 尝试修复可能被截断的 JSON
+         */
+        fun tryFixMalformedJson(text: String): String {
+            val functionCallPattern = Regex("""(do|finish)\s*\(([^)]+)\)""", RegexOption.IGNORE_CASE)
+            val functionMatch = functionCallPattern.find(text)
+
+            if (functionMatch != null) {
+                val functionName = functionMatch.groupValues[1].lowercase()
+                val paramsStr = functionMatch.groupValues[2]
+
+                if (functionName == "finish") {
+                    // 提取 message= 后面的内容，找第一个引号作为开始
+                    val afterEquals = paramsStr.substringAfter("=", "").trim()
+                    if (afterEquals.isEmpty()) {
+                        return """{"_metadata": "finish", "message": ""}"""
+                    }
+
+                    val firstChar = afterEquals.first()
+                    val rawMessage: String = when (firstChar) {
+                        '"' -> {
+                            // 找配对的关闭引号：跳过转义的 \" 和内容中的 ""
+                            var i = 1
+                            val content = StringBuilder()
+                            while (i < afterEquals.length) {
+                                val c = afterEquals[i]
+                                if (c == '\\' && i + 1 < afterEquals.length && afterEquals[i + 1] == '"') {
+                                    // 转义引号 \" -> 内容中的 "
+                                    content.append('"')
+                                    i += 2
+                                } else if (c == '"') {
+                                    // 检查是否为 "" (字面量引号)
+                                    if (i + 1 < afterEquals.length && afterEquals[i + 1] == '"') {
+                                        content.append('"')
+                                        i += 2
+                                    } else {
+                                        // 真正的结束引号
+                                        break
+                                    }
+                                } else {
+                                    content.append(c)
+                                    i++
+                                }
+                            }
+                            content.toString()
+                        }
+                        '\'' -> {
+                            // 单引号字符串：找匹配的关闭单引号
+                            var i = 1
+                            val content = StringBuilder()
+                            while (i < afterEquals.length) {
+                                val c = afterEquals[i]
+                                if (c == '\\' && i + 1 < afterEquals.length && afterEquals[i + 1] == '\'') {
+                                    content.append('\'')
+                                    i += 2
+                                } else if (c == '\'') {
+                                    break
+                                } else {
+                                    content.append(c)
+                                    i++
+                                }
+                            }
+                            content.toString()
+                        }
+                        else -> afterEquals
+                    }
+
+                    val message = rawMessage
+                        .replace("\\", "\\\\")
+                        .replace("\"", "\\\"")
+                        .replace("\n", "\\n")
+                        .replace("\r", "\\r")
+                        .replace("\t", "\\t")
+                    return """{"_metadata": "finish", "message": "$message"}"""
+                } else if (functionName == "do") {
+                    val action = mutableMapOf<String, Any>("_metadata" to "do")
+                    val paramPattern = Regex(
+                        """(\w+)\s*=\s*(\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*'|\[[^\]]+\]|-?\d+\.?\d*|true|false|[A-Za-z_][A-Za-z0-9_]*)""",
+                        RegexOption.IGNORE_CASE
+                    )
+                    val paramMatches = paramPattern.findAll(paramsStr)
+
+                    for (match in paramMatches) {
+                        val key = match.groupValues[1]
+                        val valueStr = match.groupValues[2].trim()
+                        val value: Any = when {
+                            valueStr.startsWith("[") -> {
+                                val arrayValues = valueStr.substring(1, valueStr.length - 1).split(",")
+                                    .map { it.trim() }
+                                "[" + arrayValues.joinToString(",") + "]"
+                            }
+
+                            valueStr.startsWith("\"") || valueStr.startsWith("'") -> {
+                                valueStr.trim('"', '\'').replace("\\\"", "\"").replace("\\'", "'")
+                            }
+
+                            valueStr == "true" -> true
+                            valueStr == "false" -> false
+                            valueStr.contains(".") -> valueStr.toDoubleOrNull() ?: valueStr
+                            else -> valueStr.toIntOrNull() ?: valueStr
+                        }
+                        action[key] = value
+                    }
+
+                    val jsonBuilder = StringBuilder("{")
+                    jsonBuilder.append("\"_metadata\": \"do\"")
+                    for ((key, value) in action) {
+                        if (key == "_metadata") continue
+                        jsonBuilder.append(", \"$key\": ")
+                        when (value) {
+                            is String -> {
+                                if (value.startsWith("[")) jsonBuilder.append(value)
+                                else jsonBuilder.append("\"${value.replace("\"", "\\\"")}\"")
+                            }
+
+                            is Number, is Boolean -> jsonBuilder.append(value)
+                            else -> {
+                                val vStr = value.toString()
+                                if (vStr.startsWith("[")) jsonBuilder.append(vStr)
+                                else jsonBuilder.append("\"${vStr.replace("\"", "\\\"")}\"")
+                            }
+                        }
+                    }
+                    jsonBuilder.append("}")
+                    return jsonBuilder.toString()
+                }
+            }
+
+            val pattern1 = Regex(
+                """do\s*\(\s*action\s*=\s*["']([^"']+)["']\s*,\s*app\s*=\s*["']([^"']+)["']\s*\)""",
+                RegexOption.IGNORE_CASE
+            )
+            val match1 = pattern1.find(text)
+            if (match1 != null) {
+                return """{"_metadata": "do", "action": "${match1.groupValues[1]}", "app": "${match1.groupValues[2]}"}"""
+            }
+
+            val launchPattern =
+                Regex("""(?:打开|启动|运行|launch)\s*([^\s，,。.]+)""", RegexOption.IGNORE_CASE)
+            val launchMatch = launchPattern.find(text)
+            if (launchMatch != null) {
+                return """{"_metadata": "do", "action": "Launch", "app": "${launchMatch.groupValues[1].trim()}"}"""
+            }
+
+            return ""
+        }
     }
 
     /**
@@ -171,96 +318,6 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         }
 
         return trimmed
-    }
-
-    /**
-     * 尝试修复可能被截断的 JSON
-     */
-    private fun tryFixMalformedJson(text: String): String {
-        val functionCallPattern = Regex("""(do|finish)\s*\(([^)]+)\)""", RegexOption.IGNORE_CASE)
-        val functionMatch = functionCallPattern.find(text)
-
-        if (functionMatch != null) {
-            val functionName = functionMatch.groupValues[1].lowercase()
-            val paramsStr = functionMatch.groupValues[2]
-
-            if (functionName == "finish") {
-                val messagePattern =
-                    Regex("""message\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE)
-                val messageMatch = messagePattern.find(paramsStr)
-                val message = messageMatch?.groupValues?.get(1) ?: paramsStr.trim().trim('"', '\'')
-                return """{"_metadata": "finish", "message": "$message"}"""
-            } else if (functionName == "do") {
-                val action = mutableMapOf<String, Any>("_metadata" to "do")
-                val paramPattern = Regex(
-                    """(\w+)\s*=\s*(\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*'|\[[^\]]+\]|-?\d+\.?\d*|true|false|[A-Za-z_][A-Za-z0-9_]*)""",
-                    RegexOption.IGNORE_CASE
-                )
-                val paramMatches = paramPattern.findAll(paramsStr)
-
-                for (match in paramMatches) {
-                    val key = match.groupValues[1]
-                    val valueStr = match.groupValues[2].trim()
-                    val value: Any = when {
-                        valueStr.startsWith("[") -> {
-                            val arrayValues = valueStr.substring(1, valueStr.length - 1).split(",")
-                                .map { it.trim() }
-                            "[" + arrayValues.joinToString(",") + "]"
-                        }
-
-                        valueStr.startsWith("\"") || valueStr.startsWith("'") -> {
-                            valueStr.trim('"', '\'').replace("\\\"", "\"").replace("\\'", "'")
-                        }
-
-                        valueStr == "true" -> true
-                        valueStr == "false" -> false
-                        valueStr.contains(".") -> valueStr.toDoubleOrNull() ?: valueStr
-                        else -> valueStr.toIntOrNull() ?: valueStr
-                    }
-                    action[key] = value
-                }
-
-                val jsonBuilder = StringBuilder("{")
-                jsonBuilder.append("\"_metadata\": \"do\"")
-                for ((key, value) in action) {
-                    if (key == "_metadata") continue
-                    jsonBuilder.append(", \"$key\": ")
-                    when (value) {
-                        is String -> {
-                            if (value.startsWith("[")) jsonBuilder.append(value)
-                            else jsonBuilder.append("\"${value.replace("\"", "\\\"")}\"")
-                        }
-
-                        is Number, is Boolean -> jsonBuilder.append(value)
-                        else -> {
-                            val vStr = value.toString()
-                            if (vStr.startsWith("[")) jsonBuilder.append(vStr)
-                            else jsonBuilder.append("\"${vStr.replace("\"", "\\\"")}\"")
-                        }
-                    }
-                }
-                jsonBuilder.append("}")
-                return jsonBuilder.toString()
-            }
-        }
-
-        val pattern1 = Regex(
-            """do\s*\(\s*action\s*=\s*["']([^"']+)["']\s*,\s*app\s*=\s*["']([^"']+)["']\s*\)""",
-            RegexOption.IGNORE_CASE
-        )
-        val match1 = pattern1.find(text)
-        if (match1 != null) {
-            return """{"_metadata": "do", "action": "${match1.groupValues[1]}", "app": "${match1.groupValues[2]}"}"""
-        }
-
-        val launchPattern =
-            Regex("""(?:打开|启动|运行|launch)\s*([^\s，,。.]+)""", RegexOption.IGNORE_CASE)
-        val launchMatch = launchPattern.find(text)
-        if (launchMatch != null) {
-            return """{"_metadata": "do", "action": "Launch", "app": "${launchMatch.groupValues[1].trim()}"}"""
-        }
-
-        return ""
     }
 
     /**

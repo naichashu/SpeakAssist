@@ -60,6 +60,7 @@ class CircleFloatingView(
     private var tvStatus: TextView? = null
 
     private var currentState = State.HIDDEN
+    private var currentAnimator: ValueAnimator? = null
     private val handler = Handler(Looper.getMainLooper())
     private val density = context.resources.displayMetrics.density
 
@@ -133,6 +134,8 @@ class CircleFloatingView(
 
     fun destroy() {
         handler.removeCallbacksAndMessages(null)
+        currentAnimator?.cancel()
+        currentAnimator = null
         rootView?.let {
             try {
                 windowManager.removeView(it)
@@ -148,6 +151,8 @@ class CircleFloatingView(
 
     fun showIdle() {
         handler.removeCallbacksAndMessages(null)
+        currentAnimator?.cancel()
+        currentAnimator = null
         expandedContainer?.visibility = View.GONE
         circleContainer?.visibility = View.VISIBLE
         currentState = State.IDLE
@@ -231,12 +236,24 @@ class CircleFloatingView(
             updateLayout()
         }
         animator.addListener(object : android.animation.AnimatorListenerAdapter() {
+            private var cancelled = false
+
+            override fun onAnimationCancel(animation: android.animation.Animator) {
+                cancelled = true
+            }
+
             override fun onAnimationEnd(animation: android.animation.Animator) {
+                if (cancelled) return
                 expandedContainer?.visibility = View.GONE
                 circleContainer?.visibility = View.VISIBLE
                 currentState = State.IDLE
+                if (currentAnimator === animation) {
+                    currentAnimator = null
+                }
             }
         })
+        currentAnimator?.cancel()
+        currentAnimator = animator
         animator.start()
     }
 
@@ -296,6 +313,15 @@ class CircleFloatingView(
             layoutParams?.x = it.animatedValue as Int
             updateLayout()
         }
+        animator.addListener(object : android.animation.AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: android.animation.Animator) {
+                if (currentAnimator === animation) {
+                    currentAnimator = null
+                }
+            }
+        })
+        currentAnimator?.cancel()
+        currentAnimator = animator
         animator.start()
     }
 
@@ -324,11 +350,23 @@ class CircleFloatingView(
                 updateLayout()
             }
             animator.addListener(object : android.animation.AnimatorListenerAdapter() {
+                private var cancelled = false
+
+                override fun onAnimationCancel(animation: android.animation.Animator) {
+                    cancelled = true
+                }
+
                 override fun onAnimationEnd(animation: android.animation.Animator) {
+                    if (cancelled) return
                     currentState = targetState
                     tvStatus?.text = statusText
+                    if (currentAnimator === animation) {
+                        currentAnimator = null
+                    }
                 }
             })
+            currentAnimator?.cancel()
+            currentAnimator = animator
             animator.start()
             return
         }

@@ -24,12 +24,21 @@ class AccessibilityTextInput(
             ?: return TextInputResult(false, "当前页面不可访问，无法直接输入文本")
 
         val target = findInputTarget(root)
-            ?: return TextInputResult(false, "当前页面没有可直接输入的文本框")
-
-        val arguments = Bundle().apply {
-            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+        if (target == null) {
+            // root 已在 findFirstEditableNode 遍历结束时关闭，无需再关
+            return TextInputResult(false, "当前页面没有可直接输入的文本框")
         }
-        val setTextSuccess = target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+
+        val setTextSuccess = try {
+            val arguments = Bundle().apply {
+                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+            }
+            target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+        } finally {
+            if (target !== root) closeNode(target)
+            closeNode(root)
+        }
+
         if (setTextSuccess) {
             return TextInputResult(true, "直接输入文本成功：$text")
         }
@@ -49,31 +58,47 @@ class AccessibilityTextInput(
             val clip = ClipData.newPlainText("SpeakAssist", text)
             clipboard.setPrimaryClip(clip)
 
-            val pasteArgs = Bundle().apply {
-                putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, 0)
-                putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, 0)
+            try {
+                val pasteArgs = Bundle().apply {
+                    putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, 0)
+                    putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, 0)
+                }
+
+                val root = service.rootInActiveWindow ?: return false
+                val target = findInputTarget(root)
+                if (target == null) {
+                    // root 已在 findFirstEditableNode 遍历结束时关闭，无需再关
+                    return false
+                }
+                return try {
+                    target.performAction(AccessibilityNodeInfo.ACTION_PASTE, pasteArgs)
+                } finally {
+                    if (target !== root) closeNode(target)
+                    closeNode(root)
+                }
+            } finally {
+                val clearClip = ClipData.newPlainText("SpeakAssist", "")
+                clipboard.setPrimaryClip(clearClip)
             }
-
-            val root = service.rootInActiveWindow ?: return false
-            val target = findInputTarget(root) ?: return false
-            val success = target.performAction(AccessibilityNodeInfo.ACTION_PASTE, pasteArgs)
-
-            val clearClip = ClipData.newPlainText("SpeakAssist", "")
-            clipboard.setPrimaryClip(clearClip)
-
-            return success
         } catch (e: Exception) {
             return false
         }
     }
 
     private fun findInputTarget(root: AccessibilityNodeInfo): AccessibilityNodeInfo? {
-        service.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)?.takeIf { it.isEditable }
-            ?.let { return it }
-        service.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)?.takeIf { it.isEditable }
-            ?.let { return it }
+        service.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)?.let { node ->
+            if (node.isEditable) {
+                return node
+            }
+            closeNode(node)
+        }
+        service.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)?.let { node ->
+            if (node.isEditable) {
+                return node
+            }
+            closeNode(node)
+        }
 
-        // 使用迭代方式查找可编辑节点，遍历过程中即时回收每个节点，零内存泄漏
         return findFirstEditableNode(root)
     }
 
@@ -81,10 +106,12 @@ class AccessibilityTextInput(
      * 在 AccessibilityNodeInfo 树中查找第一个可编辑节点。
      * 使用显式栈迭代而非递归，确保遍历过程中每个节点使用完毕后立即释放。
      *
-     * 节点释放规则：谁通过 getChild() 获取节点，谁负责释放。
-     * 栈中的暂存节点在出栈时释放；找到的匹配节点返回给 caller（caller 负责释放）。
+     * 节点释放规则：
+     * - root 由调用方负责释放，本函数不会释放 root。
+     * - 通过 getChild() 获取的子节点入栈，由本函数在出栈时释放。
+     * - 找到的匹配节点返回给 caller（caller 负责释放）。
      *
-     * @param root 树根节点，由 caller 持有，这里不负责释放 root
+     * @param root 树根节点，由 caller 持有
      * @return 第一个可编辑节点（caller 负责释放），null 表示未找到
      */
     private fun findFirstEditableNode(root: AccessibilityNodeInfo): AccessibilityNodeInfo? {
@@ -104,7 +131,9 @@ class AccessibilityTextInput(
                 current.getChild(i)?.let { stack.add(it) }
             }
             // 当前节点已遍历完毕，释放
-            closeNode(current)
+            if (current !== root) {
+                closeNode(current)
+            }
         }
         return null
     }

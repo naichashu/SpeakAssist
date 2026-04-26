@@ -51,7 +51,6 @@ object AppRegister {
 
                 // 存入映射（键：应用名称，值：包名）
                 appToPackageMap[appName] = packageName
-                appToPackageMap[appName.lowercase()] = packageName
 
                 packageToAppMap[packageName] = appName
             } catch (e: Exception) {

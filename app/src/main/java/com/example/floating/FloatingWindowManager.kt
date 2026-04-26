@@ -202,6 +202,8 @@ class FloatingWindowManager(private val service: AccessibilityService) {
         companionShouldShowCircle = false
         companionWasTaskRunning = false
         speechManager.cancel()
+        postTaskCleanup?.let { handler.removeCallbacks(it) }
+        postTaskCleanup = null
         circleView?.destroy()
         circleView = null
         executionCardView?.destroy()
@@ -490,6 +492,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                             ChatViewModel.resetState()
                             postTaskCleanup = null
                         }
+                        postTaskCleanup?.let { handler.removeCallbacks(it) }
                         postTaskCleanup = cleanup
                         handler.postDelayed(cleanup, 5500)
                     }
