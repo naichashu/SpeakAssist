@@ -489,10 +489,7 @@ class MainActivity : AppCompatActivity() {
      * 添加系统消息到聊天列表
      */
     private fun addSystemMessage(text: String) {
-        val isComplete = text.endsWith("。") || text.endsWith("！") || text.endsWith("？") ||
-                text.endsWith(".") || text.endsWith("!") || text.endsWith("?")
-        val displayText = if (isComplete) text else "$text..."
-        chatMessages.add(ChatMessageAdapter.ChatMessageItem(content = displayText, isUser = false))
+        chatMessages.add(ChatMessageAdapter.ChatMessageItem(content = text, isUser = false))
         chatAdapter.submitList(chatMessages.toList())
         rvChatMessages.scrollToPosition(chatMessages.size - 1)
         updateEmptyState()
