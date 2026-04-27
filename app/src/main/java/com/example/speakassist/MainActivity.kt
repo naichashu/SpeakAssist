@@ -450,8 +450,9 @@ class MainActivity : AppCompatActivity() {
             var lastTaskTitle = ""
             var lastCompletionKey = ""
             ChatViewModel.executionState.collect { state ->
-                // 任务开始时，显示用户指令（作为用户消息）
+                // 任务开始时，重置去重key并显示用户指令
                 if (state.isRunning && state.taskTitle.isNotBlank() && state.taskTitle != lastTaskTitle) {
+                    lastCompletionKey = ""
                     lastTaskTitle = state.taskTitle
                     addUserMessage(state.taskTitle)
                     addSystemMessage("正在执行：${state.taskTitle}")
