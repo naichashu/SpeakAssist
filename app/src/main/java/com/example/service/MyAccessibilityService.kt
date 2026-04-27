@@ -251,6 +251,7 @@ class MyAccessibilityService : AccessibilityService() {
      */
     private suspend fun dispatchGestureAwaiting(gesture: GestureDescription): Boolean {
         floatingWindowManager?.detachCancelChipForGesture()
+        delay(50) // 等待芯片从窗口层完全移除后再发手势，避免被截获
         return try {
             suspendCancellableCoroutine { cont ->
                 val callback = object : AccessibilityService.GestureResultCallback() {
@@ -266,6 +267,7 @@ class MyAccessibilityService : AccessibilityService() {
                 if (!submitted && cont.isActive) cont.resume(false)
             }
         } finally {
+            delay(50) // 手势结束后稍作等待再装回芯片，确保系统已完全处理完手势
             floatingWindowManager?.reattachCancelChipAfterGesture()
         }
     }
