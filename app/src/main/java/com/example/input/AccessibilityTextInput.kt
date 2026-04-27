@@ -43,12 +43,13 @@ class AccessibilityTextInput(
             return TextInputResult(true, "直接输入文本成功：$text")
         }
 
-        // setText 失败，尝试 Clipboard Paste 作为 fallback（绕过 WeChat 等 App 对 setText 的拦截）
+        // setText 失败，尝试剪贴板 Paste 作为兜底（可绕过微信等 App 对 setText 的拦截）
         val pasteSuccess = tryClipboardPaste(text)
         if (pasteSuccess) {
             return TextInputResult(true, "剪贴板粘贴输入成功：$text")
         }
 
+        // Paste 也失败，说明当前输入法模式无法工作，提示切到输入法模拟模式
         return TextInputResult(false, "当前输入框不支持直接设置文本，也无法通过剪贴板粘贴输入")
     }
 

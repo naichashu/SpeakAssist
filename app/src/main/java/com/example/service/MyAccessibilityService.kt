@@ -44,6 +44,31 @@ class MyAccessibilityService : AccessibilityService() {
     private val _currentApp = MutableStateFlow<String?>(null)
     val currentApp: StateFlow<String?> = _currentApp.asStateFlow()
 
+    /**
+     * 直接查询前台 App 包名，不依赖 TYPE_WINDOW_STATE_CHANGED 事件。
+     * 原理：AccessibilityService 的 rootInActiveWindow 返回前台 App 的窗口树，
+     * 直接读取其 package name 即可。用于解决 Launch 后事件未到达导致 currentApp 为 null 的竞态问题。
+     * 当 root 为 null 时 fallback 到 StateFlow（可能在某些边界情况有意义）。
+     */
+    fun getForegroundPackageName(): String? {
+        val root = rootInActiveWindow
+        return try {
+            root?.packageName?.toString() ?: _currentApp.value
+        } finally {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                try {
+                    root?.javaClass?.getMethod("close")?.invoke(root)
+                } catch (e: Exception) {
+                    @Suppress("DEPRECATION")
+                    root?.recycle()
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                root?.recycle()
+            }
+        }
+    }
+
     var floatingWindowManager: FloatingWindowManager? = null
         private set
 
@@ -245,18 +270,42 @@ class MyAccessibilityService : AccessibilityService() {
         }
     }
 
-    suspend fun getScreenshotSuspend(): Bitmap? {
-        // 截屏前隐藏执行卡片
+    /**
+     * 隐藏 overlay 后查询前台 App 包名。
+     * 时序：hide → delay → rootInActiveWindow（此时拿到真实前台 App）
+     * 不恢复 overlay，由 takeScreenshotAfterForegroundCheck() 继续操作后统一 restore。
+     */
+    suspend fun getForegroundPackageNameWithOverlayHidden(): String? {
         floatingWindowManager?.hideForScreenshot()
-        delay(100)
+        delay(150)
+        val root = rootInActiveWindow
+        val foregroundPkg = root?.packageName?.toString()
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                try {
+                    root?.javaClass?.getMethod("close")?.invoke(root)
+                } catch (e: Exception) {
+                    @Suppress("DEPRECATION")
+                    root?.recycle()
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                root?.recycle()
+            }
+        } catch (e: Exception) { /* ignore */ }
+        return foregroundPkg ?: _currentApp.value
+    }
 
+    /**
+     * 截取屏幕截图并恢复 overlay。
+     * 必须在 getForegroundPackageNameWithOverlayHidden() 之后调用（overlay 处于隐藏状态）。
+     */
+    suspend fun takeScreenshotAfterForegroundCheck(): Bitmap? {
         val bitmap = withTimeoutOrNull(SCREENSHOT_TIMEOUT_MS) {
             suspendCancellableCoroutine<Bitmap?> { cont ->
                 getScreenshot { cont.resume(it) }
             }
         }
-
-        // 截屏后恢复执行卡片
         floatingWindowManager?.restoreAfterScreenshot()
         return bitmap
     }

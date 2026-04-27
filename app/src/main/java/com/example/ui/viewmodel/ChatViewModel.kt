@@ -144,15 +144,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val client = modelClient ?: return finishTask(sessionId, false, "模型客户端未初始化")
             Log.d(TAG, "执行步骤 $stepCount")
 
-            val currentApp = accessibilityService.currentApp.value
+            // 隐藏 overlay 后查询前台 App（此时 rootInActiveWindow 才能拿到真实的 WeChat 等 App）
+            val currentApp = accessibilityService.getForegroundPackageNameWithOverlayHidden()
             val myProjectApp = getApplication<Application>().packageName
             val isMyProjectApp = currentApp == myProjectApp
             Log.d(TAG, "当前应用: $currentApp $myProjectApp")
 
+            // overlay 已在 getForegroundPackageNameWithOverlayHidden 中隐藏，直接截图
             val screenShot = if (isMyProjectApp) {
                 null
             } else {
-                accessibilityService.getScreenshotSuspend()
+                accessibilityService.takeScreenshotAfterForegroundCheck()
             }
             Log.d(TAG, "获取屏幕截图结果: $screenShot")
 
@@ -276,9 +278,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             // 错误处理
             if (!result.success) {
-                // Type 失败 + 当前是 DIRECT 模式 + 不可访问错误 → 立即结束并提示用户切换输入法
+                // 在微信里 type 失败 + DIRECT 模式 → 立即提示用户切换输入法
+                if (actionType == "type" && inputMode == TextInputMode.DIRECT && currentApp == "com.tencent.mm") {
+                    Log.w(TAG, "Type在微信+DIRECT模式下失败，立即提示用户切换输入法")
+                    Toast.makeText(
+                        getApplication(),
+                        "输入失败：微信等应用会拦截直接输入。请去「设置」→「输入方式」切换到「输入法模拟」模式后重试。",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return finishTask(
+                        sessionId, false,
+                        "输入失败：当前「直接设置文本」模式被微信拦截。请去「设置」→「输入方式」切换到「输入法模拟」模式，然后重新执行任务。"
+                    )
+                }
+
+                // Type 失败 + 非微信 + DIRECT 模式 + setText/Paste 均失败 → 提示切换输入法
                 if (actionType == "type" && inputMode == TextInputMode.DIRECT &&
-                    (result.message ?: "").contains("不可访问")) {
+                    ((result.message ?: "").contains("不可访问") ||
+                     (result.message ?: "").contains("剪贴板粘贴输入"))) {
                     Log.w(TAG, "Type在DIRECT模式下被拦截，立即结束并提示用户")
                     Toast.makeText(
                         getApplication(),
@@ -299,7 +316,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 // 构建具体错误消息：包含失败原因和替代策略指导
-                val errorText = buildErrorText(actionType, result.message ?: "未知错误", inputMode)
+                val errorText = buildErrorText(actionType, result.message ?: "未知错误", inputMode, currentApp)
 
                 messageContext.add(
                     ChatMessage(
@@ -343,33 +360,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * 构建具体的错误反馈文本，包含失败原因和替代策略
      */
-    private fun buildErrorText(actionType: String, errorMessage: String, inputMode: TextInputMode): String {
+    private fun buildErrorText(actionType: String, errorMessage: String, inputMode: TextInputMode, currentApp: String?): String {
         return when {
-            actionType == "type" && errorMessage.contains("不可访问") && inputMode == TextInputMode.DIRECT -> {
+            // 微信里 type 失败：统一提示切输入法
+            actionType == "type" && currentApp == "com.tencent.mm" -> {
                 """
                     上一轮动作执行失败: $errorMessage
 
-                    原因分析：当前使用的是「直接设置文本」模式，微信等应用会拦截 setText 操作导致输入失败。
+                    原因分析：微信等应用会拦截直接设置文本和剪贴板粘贴操作，输入法模拟模式才能正常工作。
 
                     请先去侧栏「设置」→「输入方式」切换到「输入法模拟」模式，然后重新执行任务。
                     切换后需要将系统输入法切换为 SpeakAssist 输入法（切换方式：长按地球键选择 SpeakAssist 输入法）。
-                """.trimIndent()
-            }
-            actionType == "type" && errorMessage.contains("不可访问") -> {
-                """
-                    上一轮动作执行失败: $errorMessage
-
-                    原因分析：微信搜索框会拦截 setText 直接输入操作，必须换策略。
-
-                    请按以下步骤执行：
-                    1. 先执行 Back 退出搜索页
-                    2. 点击底部「通讯录」tab 切换到通讯录页面
-                    3. 在通讯录列表中找到"文件传输助手"（向上滑动查找）
-                    4. 点击进入聊天
-                    5. 点击输入框
-                    6. 使用 Type 输入消息内容
-
-                    禁止重复执行 Type 动作。
                 """.trimIndent()
             }
             else -> {
