@@ -857,7 +857,30 @@ class ActionExecutor(private val service: MyAccessibilityService) {
      * @param actionObj 包含delay字段的JSON对象，单位为毫秒
      */
     private suspend fun wait(actionObj: JsonObject): ActionResult {
-        val delay = actionObj.get("delay")?.asLong
+        // 支持 delay（标准JSON）和 duration（system prompt 中的格式）
+        val rawDelay = actionObj.get("delay") ?: actionObj.get("duration")
+        val delay = when {
+            rawDelay == null -> null
+            rawDelay.isJsonPrimitive -> {
+                val prim = rawDelay.asJsonPrimitive
+                when {
+                    prim.isNumber -> prim.asDouble.toLong() * 1000  // 纯数字视为秒，转毫秒
+                    prim.isString -> {
+                        val s = prim.asString.trim()
+                        val hasUnit = s.contains("second", ignoreCase = true)
+                        val numStr = s.replace("seconds", "", ignoreCase = true)
+                            .replace("second", "", ignoreCase = true).trim()
+                        val parsedMs = numStr.toLongOrNull()
+                        if (parsedMs == null) null else {
+                            // 带了 "second" 单位则视为秒，转为毫秒；否则直接当毫秒处理
+                            if (hasUnit) parsedMs * 1000 else parsedMs
+                        }
+                    }
+                    else -> null
+                }
+            }
+            else -> null
+        }
 
         if (delay == null || delay <= 0) {
             return ActionResult(
