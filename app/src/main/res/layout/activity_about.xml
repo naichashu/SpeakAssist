@@ -66,7 +66,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="© 2024 SpeakAssist\nAll rights reserved."
+            android:text="© 2026 SpeakAssist\nAll rights reserved."
             android:textSize="12sp"
             android:textColor="#999999"
             android:gravity="center"
