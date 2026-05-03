@@ -68,48 +68,60 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                     val firstChar = afterEquals.first()
                     val rawMessage: String = when (firstChar) {
                         '"' -> {
-                            // 找配对的关闭引号：跳过转义的 \" 和内容中的 ""
-                            var i = 1
-                            val content = StringBuilder()
-                            while (i < afterEquals.length) {
-                                val c = afterEquals[i]
-                                if (c == '\\' && i + 1 < afterEquals.length && afterEquals[i + 1] == '"') {
-                                    // 转义引号 \" -> 内容中的 "
-                                    content.append('"')
-                                    i += 2
-                                } else if (c == '"') {
-                                    // 检查是否为 "" (字面量引号)
-                                    if (i + 1 < afterEquals.length && afterEquals[i + 1] == '"') {
-                                        content.append('"')
-                                        i += 2
-                                    } else {
-                                        // 真正的结束引号
-                                        break
+                            // 找闭引号：使用 paramsStr 段的最后一个 " 作为闭引号，
+                            // 这样可以容忍 message 内部出现未转义的裸引号
+                            // （如模型输出 finish(message="...点击"抢购"按钮..."），
+                            // 中间的 "抢购" 是字面量，不应该被当成结束）。
+                            // 同时仍然识别 \" 转义和 "" 字面量两种规范写法，反转义为单个 "。
+                            val lastQuoteIdx = afterEquals.lastIndexOf('"')
+                            if (lastQuoteIdx <= 0) {
+                                // 没有闭引号或开头自身就是仅有的引号（空字符串）
+                                ""
+                            } else {
+                                var i = 1
+                                val content = StringBuilder()
+                                while (i < lastQuoteIdx) {
+                                    val c = afterEquals[i]
+                                    when {
+                                        c == '\\' && i + 1 < lastQuoteIdx && afterEquals[i + 1] == '"' -> {
+                                            // 转义引号 \" -> 内容中的 "
+                                            content.append('"')
+                                            i += 2
+                                        }
+                                        c == '"' && i + 1 < lastQuoteIdx && afterEquals[i + 1] == '"' -> {
+                                            // 字面量 "" -> 内容中的 "
+                                            content.append('"')
+                                            i += 2
+                                        }
+                                        else -> {
+                                            content.append(c)
+                                            i++
+                                        }
                                     }
-                                } else {
-                                    content.append(c)
-                                    i++
                                 }
+                                content.toString()
                             }
-                            content.toString()
                         }
                         '\'' -> {
-                            // 单引号字符串：找匹配的关闭单引号
-                            var i = 1
-                            val content = StringBuilder()
-                            while (i < afterEquals.length) {
-                                val c = afterEquals[i]
-                                if (c == '\\' && i + 1 < afterEquals.length && afterEquals[i + 1] == '\'') {
-                                    content.append('\'')
-                                    i += 2
-                                } else if (c == '\'') {
-                                    break
-                                } else {
-                                    content.append(c)
-                                    i++
+                            // 单引号字符串：同样使用最后一个 ' 作为闭引号，容忍内嵌裸单引号
+                            val lastQuoteIdx = afterEquals.lastIndexOf('\'')
+                            if (lastQuoteIdx <= 0) {
+                                ""
+                            } else {
+                                var i = 1
+                                val content = StringBuilder()
+                                while (i < lastQuoteIdx) {
+                                    val c = afterEquals[i]
+                                    if (c == '\\' && i + 1 < lastQuoteIdx && afterEquals[i + 1] == '\'') {
+                                        content.append('\'')
+                                        i += 2
+                                    } else {
+                                        content.append(c)
+                                        i++
+                                    }
                                 }
+                                content.toString()
                             }
-                            content.toString()
                         }
                         else -> afterEquals
                     }

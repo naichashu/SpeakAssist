@@ -66,7 +66,14 @@ class ApiConfigActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_export -> {
-                exportLauncher.launch("speakassist_api.json")
+                androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle(R.string.api_config_export_warn_title)
+                    .setMessage(R.string.api_config_export_warn_message)
+                    .setPositiveButton(R.string.api_config_export_warn_continue) { _, _ ->
+                        exportLauncher.launch("speakassist_api.json")
+                    }
+                    .setNegativeButton(R.string.cancel, null)
+                    .show()
                 true
             }
             R.id.action_import -> {

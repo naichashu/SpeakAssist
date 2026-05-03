@@ -127,10 +127,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         var retryCount = 0
         val maxRetries = 4
         val compressionLevel = 80
+        try {
         while (stepCount < maxSteps) {
-            // 每个 step 开始时重置失败计数器
-            stepActionFailures.clear()
-
             // 读取当前输入模式
             val inputMode = SettingsPrefs.textInputMode(getApplication()).first()
 
@@ -352,9 +350,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             Log.d(TAG, "等待界面稳定: ${settleDelayMs}ms, action=${result.actionDetail?.type}")
             delay(settleDelayMs)
             stepCount++
+            // 每个成功的 step 完成后清零失败计数器，
+            // 防止跨 step 的同种 action 误命中硬拦截阈值
+            stepActionFailures.clear()
         }
         Log.w("ChatViewModel", "达到最大步数限制")
         return finishTask(sessionId, false, "达到最大步数限制($maxSteps)")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // 协程取消必须重抛，否则破坏取消语义
+            finishTask(sessionId, false, "用户手动取消任务", isCancelled = true)
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "executeTaskLoop 异常", e)
+            return finishTask(sessionId, false, "执行异常：${e.message ?: "未知错误"}")
+        }
     }
 
     /**

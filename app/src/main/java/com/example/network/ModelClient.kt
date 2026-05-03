@@ -49,7 +49,10 @@ class ModelClient(
 
     init {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (com.example.speakassist.BuildConfig.DEBUG)
+                HttpLoggingInterceptor.Level.BODY
+            else
+                HttpLoggingInterceptor.Level.NONE
         }
 
         okHttpClient = OkHttpClient.Builder()
@@ -126,7 +129,9 @@ class ModelClient(
                         if (!response.isSuccessful) {
                             Log.e(TAG, "请求失败: ${response.code} ${response.message}")
                             if (continuation.isActive) {
-                                continuation.resumeWithException(Exception("请求失败: ${response.code} ${response.message}"))
+                                continuation.resumeWithException(
+                                    java.io.IOException("请求失败: ${response.code} ${response.message}")
+                                )
                             }
                             return
                         }

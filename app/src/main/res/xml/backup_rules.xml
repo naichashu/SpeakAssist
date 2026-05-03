@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older than API 31
-   See https://developer.android.com/about/versions/12/backup-restore
+   备份排除规则：API 凭据与任务历史不参与系统备份/迁移，
+   防止 API Key 与历史命令明文随设备备份上云。
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <!-- 排除 API 凭据（DataStore Preferences） -->
+    <exclude domain="file" path="datastore/" />
+    <!-- 排除任务历史 DB（含截图触发的命令明文） -->
+    <exclude domain="database" path="speakassist.db" />
+    <exclude domain="database" path="speakassist.db-shm" />
+    <exclude domain="database" path="speakassist.db-wal" />
 </full-backup-content>
