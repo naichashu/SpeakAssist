@@ -131,6 +131,8 @@ class ApiConfigActivity : AppCompatActivity() {
                 toast(R.string.api_config_imported)
             } catch (e: ApiConfigBackup.BackupFormatException) {
                 toast(R.string.api_config_import_format_error)
+            } catch (e: ApiConfigBackup.BackupEmptyException) {
+                toast(R.string.api_config_import_empty_error)
             } catch (e: ApiConfigBackup.BackupVersionException) {
                 toast(R.string.api_config_import_version_error)
             } catch (e: Exception) {

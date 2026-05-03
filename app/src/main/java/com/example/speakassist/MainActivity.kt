@@ -410,6 +410,14 @@ class MainActivity : AppCompatActivity() {
      * 清空输入并触发任务执行，消息显示统一由 observeExecutionState 处理
      */
     private fun sendMessage(text: String) {
+        // 并发护栏：companion StateFlow 是进程级单例，主界面与悬浮窗共享。
+        // 已有任务执行中再点发送会启动第二条 executeTaskLoop，两条循环并行写
+        // _executionState、并行调 dispatchGesture，状态错乱。
+        // 守门必须在 setText("") 之前，否则用户被拒绝时输入框已清空，得重打。
+        if (ChatViewModel.executionState.value.isRunning) {
+            Toast.makeText(this, R.string.task_already_running, Toast.LENGTH_SHORT).show()
+            return
+        }
         etInput.setText("")
         clearInputFocus()
         executeTask(text)

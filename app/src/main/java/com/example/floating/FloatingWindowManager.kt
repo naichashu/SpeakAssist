@@ -410,6 +410,20 @@ class FloatingWindowManager(private val service: AccessibilityService) {
 
     private fun onVoiceResult(text: String) {
         Log.d(TAG, "语音识别结果：$text")
+        // 并发护栏：companion StateFlow 是进程级单例，主界面与悬浮窗共享。
+        // 正常情况下 isTaskRunning 已经把唤醒词监听挡在前面，这里是双重保险——
+        // 防止主界面任务执行时悬浮窗的语音命令旁路启动第二条循环。
+        if (ChatViewModel.executionState.value.isRunning) {
+            Log.w(TAG, "已有任务在执行，丢弃语音命令: $text")
+            handler.post {
+                circleView?.showRecognitionError(service.getString(com.example.speakassist.R.string.task_already_running))
+            }
+            handler.postDelayed({
+                circleView?.collapseToIdle()
+                syncWakeWordListening()
+            }, ERROR_DISPLAY_DURATION)
+            return
+        }
         scope.launch {
             try {
                 val viewModel = ChatViewModel(service.application)

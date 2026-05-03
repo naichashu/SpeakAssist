@@ -98,12 +98,14 @@
     <string name="api_config_exported">已导出到所选位置</string>
     <string name="api_config_imported">已导入并保存</string>
     <string name="api_config_import_format_error">文件格式不正确，确认是 SpeakAssist 导出的 JSON</string>
+    <string name="api_config_import_empty_error">文件未填写任何 API Key，已拒绝导入（防止覆盖现有配置）</string>
     <string name="api_config_import_version_error">版本不兼容</string>
     <string name="api_config_io_error">读写失败：%1$s</string>
     <string name="api_config_export_warn_title">导出风险提示</string>
     <string name="api_config_export_warn_message">导出文件包含明文 API Key（智谱、百度），任何能读取该文件的应用或人都能使用你的密钥。请保存到只有自己能访问的位置（不要放到云盘共享目录）。\n\n确定继续导出吗？</string>
     <string name="api_config_export_warn_continue">继续导出</string>
     <string name="api_config_voice_needs_baidu">请先在「API 配置」填入百度 Key</string>
+    <string name="task_already_running">已有任务在执行，请等待完成或先取消</string>
     <string name="menu_description">菜单</string>
 
     <string name="history_empty">暂无历史记录</string>
