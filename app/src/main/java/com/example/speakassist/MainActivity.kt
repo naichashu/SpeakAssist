@@ -309,13 +309,15 @@ class MainActivity : AppCompatActivity() {
 
         speechManager.setCallback(object : BaiduSpeechManager.Callback {
             override fun onReady() {
-                runOnUiThread {
-                    Toast.makeText(this@MainActivity, R.string.voice_listening, Toast.LENGTH_SHORT).show()
-                }
+                // 主界面用中央气泡作为"正在录音"的主反馈，不再额外弹 Toast；
+                // 避免 Toast 叠在气泡上重复打扰。
             }
 
             override fun onResult(text: String) {
                 runOnUiThread {
+                    // 兜底：60s maxRecordingDurationMs 触发的自动结束会在用户仍按住时
+                    // 直接到这里。手动 stop() 路径下气泡已被 handleUp 隐藏，再 hide 一次是 no-op。
+                    hideVoiceBubble()
                     // 识别成功后自动切回键盘模式，让用户立刻看到回填文字、可编辑
                     if (inputMode == InputMode.VOICE) {
                         switchInputMode(InputMode.KEYBOARD)
@@ -328,6 +330,8 @@ class MainActivity : AppCompatActivity() {
 
             override fun onError(message: String) {
                 runOnUiThread {
+                    // 同上：兜底关掉可能仍在显示的气泡（罕见，但避免出错时气泡卡住）
+                    hideVoiceBubble()
                     Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
                 }
             }
