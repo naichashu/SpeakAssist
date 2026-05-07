@@ -43,6 +43,7 @@ import com.example.ui.adapter.ChatMessageAdapter
 import com.example.ui.viewmodel.ChatViewModel
 import com.google.android.material.navigation.NavigationView
 import com.google.android.material.textfield.TextInputEditText
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -438,6 +439,12 @@ class MainActivity : AppCompatActivity() {
                 if (!result.success && result.message.contains("无障碍服务")) {
                     openAccessibilitySettings()
                 }
+            } catch (e: CancellationException) {
+                // lifecycleScope 在 onDestroy 时会取消所有 launch。executeTaskLoop
+                // 内部已经走 finishTask 收尾了状态；这里不要落到下面的 catch (Exception)
+                // 去调 addSystemMessage——Activity 已经在销毁路径上，操作 RecyclerView
+                // 有 NPE/IllegalStateException 风险。
+                throw e
             } catch (e: Exception) {
                 Log.e("MainActivity", "执行任务失败", e)
                 addSystemMessage("执行失败：${e.message}")
@@ -744,6 +751,20 @@ class MainActivity : AppCompatActivity() {
      */
     override fun onDestroy() {
         super.onDestroy()
+        // 用户划应用（最近任务列表移除）→ Activity onDestroy →
+        // lifecycleScope.cancel()。仅靠协程协作取消会让正在跑的
+        // executeTaskLoop 走异常路径退出，有概率让 HTTP 请求和已发出的
+        // dispatchGesture 来不及收尾；而悬浮窗启动的任务挂在 service-scope
+        // 上，根本不会被 lifecycleScope 取消影响——任务真的会继续在后台跑。
+        //
+        // 通过 companion object 的 _cancelRequested 信号，executeTaskLoop
+        // 下一轮 cancel 检查会主动取消 HTTP 并走 finishTask 收尾，
+        // 同时覆盖 MainActivity 启动和悬浮窗启动两条路径。
+        //
+        // isChangingConfigurations：横竖屏切换时为 true，此时不应取消任务。
+        if (!isChangingConfigurations && ChatViewModel.executionState.value.isRunning) {
+            ChatViewModel.requestCancel()
+        }
         speechManager.destroy()
         noiseLevelJob?.cancel()
         voiceBackgroundAnimator?.cancel()
