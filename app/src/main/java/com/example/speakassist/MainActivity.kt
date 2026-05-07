@@ -435,7 +435,7 @@ class MainActivity : AppCompatActivity() {
             try {
                 Log.d("MainActivity", "开始执行任务：$command")
                 chatViewModel = ChatViewModel(application)
-                val result = chatViewModel.executeTaskLoop(command, "autoglm-phone")
+                val result = chatViewModel.executeTaskLoop(command)
                 if (!result.success && result.message.contains("无障碍服务")) {
                     openAccessibilitySettings()
                 }

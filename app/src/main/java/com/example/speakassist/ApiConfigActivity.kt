@@ -26,7 +26,9 @@ import kotlinx.coroutines.launch
  */
 class ApiConfigActivity : AppCompatActivity() {
 
-    private lateinit var etZhipu: TextInputEditText
+    private lateinit var etLlmBaseUrl: TextInputEditText
+    private lateinit var etLlmModelName: TextInputEditText
+    private lateinit var etLlmApiKey: TextInputEditText
     private lateinit var etBaiduApiKey: TextInputEditText
     private lateinit var etBaiduSecretKey: TextInputEditText
 
@@ -49,7 +51,9 @@ class ApiConfigActivity : AppCompatActivity() {
 
         setupBackToolbar(findViewById(R.id.toolbar), getString(R.string.nav_api_config))
 
-        etZhipu = findViewById(R.id.etZhipuApiKey)
+        etLlmBaseUrl = findViewById(R.id.etLlmBaseUrl)
+        etLlmModelName = findViewById(R.id.etLlmModelName)
+        etLlmApiKey = findViewById(R.id.etLlmApiKey)
         etBaiduApiKey = findViewById(R.id.etBaiduApiKey)
         etBaiduSecretKey = findViewById(R.id.etBaiduSecretKey)
 
@@ -86,7 +90,9 @@ class ApiConfigActivity : AppCompatActivity() {
     }
 
     private fun save() {
-        val zhipu = etZhipu.text?.toString().orEmpty().trim()
+        val baseUrl = etLlmBaseUrl.text?.toString().orEmpty().trim()
+        val modelName = etLlmModelName.text?.toString().orEmpty().trim()
+        val apiKey = etLlmApiKey.text?.toString().orEmpty().trim()
         val baiduKey = etBaiduApiKey.text?.toString().orEmpty().trim()
         val baiduSecret = etBaiduSecretKey.text?.toString().orEmpty().trim()
 
@@ -97,7 +103,9 @@ class ApiConfigActivity : AppCompatActivity() {
         }
 
         lifecycleScope.launch {
-            SettingsPrefs.setZhipuApiKey(this@ApiConfigActivity, zhipu)
+            SettingsPrefs.setZhipuApiKey(this@ApiConfigActivity, apiKey)
+            SettingsPrefs.setModelBaseUrl(this@ApiConfigActivity, baseUrl)
+            SettingsPrefs.setModelName(this@ApiConfigActivity, modelName)
             SettingsPrefs.setBaiduCredentials(this@ApiConfigActivity, baiduKey, baiduSecret)
             Toast.makeText(this@ApiConfigActivity, R.string.api_config_saved, Toast.LENGTH_SHORT).show()
             finish()
@@ -105,7 +113,9 @@ class ApiConfigActivity : AppCompatActivity() {
     }
 
     private suspend fun loadFieldsFromStore() {
-        etZhipu.setText(SettingsPrefs.zhipuApiKey(this).first())
+        etLlmBaseUrl.setText(SettingsPrefs.modelBaseUrl(this).first())
+        etLlmModelName.setText(SettingsPrefs.modelName(this).first())
+        etLlmApiKey.setText(SettingsPrefs.zhipuApiKey(this).first())
         etBaiduApiKey.setText(SettingsPrefs.baiduApiKey(this).first())
         etBaiduSecretKey.setText(SettingsPrefs.baiduSecretKey(this).first())
     }

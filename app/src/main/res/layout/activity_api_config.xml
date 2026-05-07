@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- API 配置页：用户填写自己的智谱/百度凭据，写入 DataStore -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -37,11 +36,10 @@
                 android:lineSpacingExtra="4dp"
                 android:layout_marginBottom="20dp" />
 
-            <!-- 智谱 AutoGLM -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/api_config_zhipu_section"
+                android:text="@string/api_config_llm_section"
                 android:textSize="14sp"
                 android:textColor="@color/primary"
                 android:textStyle="bold"
@@ -50,31 +48,68 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/api_config_zhipu_desc"
+                android:text="@string/api_config_llm_desc"
                 android:textSize="12sp"
                 android:textColor="@android:color/darker_gray"
                 android:layout_marginBottom="8dp" />
 
             <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/tilZhipuApiKey"
+                android:id="@+id/tilLlmBaseUrl"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="@string/api_config_zhipu_hint"
-                app:endIconMode="password_toggle">
+                android:hint="@string/api_config_llm_baseurl_hint"
+                android:layout_marginBottom="12dp">
 
                 <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/etZhipuApiKey"
+                    android:id="@+id/etLlmBaseUrl"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="textPassword"
-                    android:imeOptions="actionDone|flagNoPersonalizedLearning"
+                    android:inputType="textUri"
+                    android:imeOptions="actionNext|flagNoPersonalizedLearning"
                     android:importantForAutofill="no"
                     android:maxLines="1"
                     android:fontFamily="monospace" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- 百度语音 -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilLlmModelName"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/api_config_llm_model_hint"
+                android:layout_marginBottom="12dp">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etLlmModelName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="text"
+                    android:imeOptions="actionNext|flagNoPersonalizedLearning"
+                    android:importantForAutofill="no"
+                    android:maxLines="1"
+                    android:fontFamily="monospace" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilLlmApiKey"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/api_config_llm_apikey_hint"
+                app:endIconMode="password_toggle">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etLlmApiKey"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textPassword"
+                    android:imeOptions="actionNext|flagNoPersonalizedLearning"
+                    android:importantForAutofill="no"
+                    android:maxLines="1"
+                    android:fontFamily="monospace" />
+            </com.google.android.material.textfield.TextInputLayout>
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -135,7 +170,6 @@
         </LinearLayout>
     </ScrollView>
 
-    <!-- 保存按钮常驻底部 -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnSave"
         android:layout_width="match_parent"
