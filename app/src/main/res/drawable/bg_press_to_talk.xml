@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    按住说话按钮的三态背景：
+    - 默认：灰底 + 浅灰描边（提示这是一个按钮）
+    - state_pressed=true：浅红底 + 红色描边（录音中、正常态）
+    - state_activated=true：纯红底 + 深红描边（上滑后将取消，由代码驱动）
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_activated="true">
+        <shape android:shape="rectangle">
+            <corners android:radius="8dp" />
+            <solid android:color="@color/voice_button_recording" />
+            <stroke
+                android:width="1dp"
+                android:color="#B71C1C" />
+        </shape>
+    </item>
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <corners android:radius="8dp" />
+            <solid android:color="#FFE0E0" />
+            <stroke
+                android:width="1dp"
+                android:color="@color/voice_button_recording" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="8dp" />
+            <solid android:color="#F5F5F5" />
+            <stroke
+                android:width="1dp"
+                android:color="#DDDDDD" />
+        </shape>
+    </item>
+</selector>

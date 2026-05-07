@@ -2,21 +2,23 @@ package com.example.speakassist
 
 import android.Manifest
 import android.accessibilityservice.AccessibilityServiceInfo
-import android.animation.ArgbEvaluator
-import android.animation.ValueAnimator
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
+import android.view.MotionEvent
 import android.view.View
 import android.view.accessibility.AccessibilityManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.ImageButton
+import android.widget.ImageView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
@@ -41,10 +43,11 @@ import com.example.speech.BaiduSpeechManager
 import com.example.speech.NoiseLevel
 import com.example.ui.adapter.ChatMessageAdapter
 import com.example.ui.viewmodel.ChatViewModel
+import com.example.ui.widget.WaveformView
 import com.google.android.material.navigation.NavigationView
 import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -52,50 +55,70 @@ import kotlinx.coroutines.launch
  * MainActivity - 应用主界面
  *
  * 负责：
- * 1. 显示顶部导航栏（Toolbar + 侧栏菜单）
+ * 1. 顶部导航栏 + 侧栏菜单
  * 2. 检查并提示权限状态
  * 3. 显示聊天消息列表
- * 4. 处理用户输入（文本/语音）
+ * 4. 处理用户输入：文字（默认）+ 按住说话（语音模式）
  * 5. 发起任务执行
+ *
+ * 输入区交互：
+ * - 默认键盘模式：[btnInputMode 麦克风] [文本输入框] [发送]
+ * - 切到语音模式：[btnInputMode 键盘] [按住 说话按钮] （发送按钮 gone）
+ * - 长按按钮录音 → 中央气泡浮起 + 音波动画；松手送识别；上滑超阈值松手则取消
  */
 class MainActivity : AppCompatActivity() {
 
+    enum class InputMode { KEYBOARD, VOICE }
+
     // ==================== 视图组件 ====================
-    private lateinit var drawerLayout: androidx.drawerlayout.widget.DrawerLayout  // 侧栏布局
-    private lateinit var toolbar: Toolbar                                         // 顶部导航栏
-    private lateinit var permissionBanner: View                                  // 权限提示横幅
-    private lateinit var tvPermissionHint: android.widget.TextView              // 权限提示文字
-    private lateinit var btnPermissionSettings: Button                          // 权限设置按钮
-    private lateinit var rvChatMessages: androidx.recyclerview.widget.RecyclerView  // 消息列表
-    private lateinit var emptyState: View                                       // 空状态视图
-    private lateinit var etInput: TextInputEditText                             // 文本输入框
-    private lateinit var btnVoice: ImageButton                                  // 语音按钮
-    private lateinit var noiseIndicator: View                                   // 录音时叠加在按钮右上的噪声指示圆点
-    private var voiceBackgroundAnimator: ValueAnimator? = null               // 按钮背景渐变动画
-    private var voiceButtonBackground: GradientDrawable? = null                // 按钮背景，用于程序化控制渐变色
-    private var noiseLevelJob: Job? = null                                     // 噪声级别订阅协程，onDestroy 时取消
-    private lateinit var btnSend: ImageButton                                    // 发送按钮
+    private lateinit var drawerLayout: androidx.drawerlayout.widget.DrawerLayout
+    private lateinit var toolbar: Toolbar
+    private lateinit var permissionBanner: View
+    private lateinit var tvPermissionHint: TextView
+    private lateinit var btnPermissionSettings: Button
+    private lateinit var rvChatMessages: androidx.recyclerview.widget.RecyclerView
+    private lateinit var emptyState: View
+
+    // 输入区
+    private lateinit var btnInputMode: ImageButton                 // 麦克风/键盘 切换
+    private lateinit var inputArea: FrameLayout                    // tilInput 与 btnPressToTalk 的容器
+    private lateinit var tilInput: TextInputLayout                 // 文本输入框包装
+    private lateinit var etInput: TextInputEditText                // 文本输入框
+    private lateinit var btnPressToTalk: Button                    // 按住说话按钮
+    private lateinit var noiseIndicator: View                      // 噪声指示小圆点
+    private lateinit var btnSend: ImageButton                      // 发送按钮
+
+    // 中央录音气泡
+    private lateinit var voiceBubble: View
+    private lateinit var ivBubbleIcon: ImageView
+    private lateinit var waveformView: WaveformView
+    private lateinit var tvBubbleHint: TextView
+
+    private var noiseLevelJob: Job? = null
 
     // ==================== 数据和适配器 ====================
-    private lateinit var chatAdapter: ChatMessageAdapter  // 聊天消息适配器
-    private val chatMessages = mutableListOf<ChatMessageAdapter.ChatMessageItem>() // 消息列表（单一数据源）
+    private lateinit var chatAdapter: ChatMessageAdapter
+    private val chatMessages = mutableListOf<ChatMessageAdapter.ChatMessageItem>()
 
     // ==================== 业务逻辑 ====================
-    private lateinit var speechManager: BaiduSpeechManager  // 百度语音管理器
-    private lateinit var chatViewModel: ChatViewModel       // 聊天业务逻辑
+    private lateinit var speechManager: BaiduSpeechManager
+    private lateinit var chatViewModel: ChatViewModel
 
-    // 最新的百度凭据快照：credentialsFlow collect 时写入，语音按钮点击时同步读。
-    // @Volatile 因为 UI 线程读、Flow collect 也在 UI 线程但为将来防御。
+    private var inputMode: InputMode = InputMode.KEYBOARD
+    private var pressToTalkController: PressToTalkController? = null
+
+    // 最新的百度凭据快照：credentialsFlow collect 时写入，按住说话 ACTION_DOWN 同步读。
     @Volatile
     private var latestBaiduCredentials: BaiduSpeechCredentials? = null
 
     // ==================== 权限请求 ====================
-    // 录音权限请求回调
+    // 录音权限请求回调：仅 Toast 提示是否授予，不再自动 start。
+    // 按住模式下用户被弹出系统对话框授权后，需要主动再按一次按钮。
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
-            startSpeechRecognition()
+            Toast.makeText(this, R.string.voice_permission_granted_hint, Toast.LENGTH_SHORT).show()
         } else {
             Toast.makeText(this, R.string.voice_permission_required, Toast.LENGTH_SHORT).show()
         }
@@ -103,6 +126,12 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val KEY_CHAT_MESSAGES = "chat_messages"
+
+        /** 上滑超过该距离视为"将取消" */
+        private const val SWIPE_UP_CANCEL_THRESHOLD_DP = 50f
+
+        /** 按住时长 < 300ms 视为误触 */
+        private const val MIN_PRESS_DURATION_MS = 300L
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -111,19 +140,10 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
 
-        // 初始化视图组件
         initViews()
-
-        // 设置Toolbar
         setupToolbar()
-
-        // 设置侧栏
         setupDrawer()
-
-        // 设置权限检查
         checkPermissions()
-
-        // 设置聊天列表
         setupChatList()
 
         // Activity 重建时恢复聊天记录（避免横竖屏切换丢失）
@@ -135,24 +155,17 @@ class MainActivity : AppCompatActivity() {
             updateEmptyState()
         }
 
-        // 设置语音识别
         setupSpeechManager()
-
-        // 设置输入框和发送按钮
         setupInputArea()
-
-        // 处理窗口Insets
+        setupInputModeToggle()
+        setupPressToTalk()
         setupWindowInsets()
-
         setupBackPressedHandler()
-
-        // 观察悬浮窗发起的任务执行状态
         observeExecutionState()
     }
 
     /**
      * 初始化视图组件
-     * 从布局文件中获取所有必要的UI组件引用
      */
     private fun initViews() {
         drawerLayout = findViewById(R.id.main)
@@ -162,21 +175,28 @@ class MainActivity : AppCompatActivity() {
         btnPermissionSettings = findViewById(R.id.btnPermissionSettings)
         rvChatMessages = findViewById(R.id.rvChatMessages)
         emptyState = findViewById(R.id.emptyState)
+
+        btnInputMode = findViewById(R.id.btnInputMode)
+        inputArea = findViewById(R.id.inputArea)
+        tilInput = findViewById(R.id.tilInput)
         etInput = findViewById(R.id.etInput)
-        btnVoice = findViewById(R.id.btnVoice)
+        btnPressToTalk = findViewById(R.id.btnPressToTalk)
         noiseIndicator = findViewById(R.id.noiseIndicator)
         btnSend = findViewById(R.id.btnSend)
+
+        voiceBubble = findViewById(R.id.voiceBubble)
+        ivBubbleIcon = findViewById(R.id.ivBubbleIcon)
+        waveformView = findViewById(R.id.waveformView)
+        tvBubbleHint = findViewById(R.id.tvBubbleHint)
     }
 
     /**
      * 设置Toolbar
-     * 配置顶部导航栏，包括标题和侧栏菜单开关
      */
     private fun setupToolbar() {
         setSupportActionBar(toolbar)
-        supportActionBar?.setDisplayShowTitleEnabled(false) // 隐藏默认标题，使用自定义
+        supportActionBar?.setDisplayShowTitleEnabled(false)
 
-        // 设置汉堡菜单按钮点击事件
         val ivMenu = findViewById<android.widget.ImageView>(R.id.ivMenu)
         ivMenu?.setOnClickListener {
             clearInputFocus()
@@ -186,7 +206,6 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * 设置侧栏菜单
-     * 配置NavigationView的菜单项点击事件
      */
     private fun setupDrawer() {
         val navigationView = findViewById<NavigationView>(R.id.navigationView)
@@ -200,15 +219,12 @@ class MainActivity : AppCompatActivity() {
                     startActivity(Intent(this, ApiConfigActivity::class.java))
                 }
                 R.id.nav_settings -> {
-                    // 跳转到设置页面
                     startActivity(Intent(this, SettingsActivity::class.java))
                 }
                 R.id.nav_about -> {
-                    // 跳转到关于页面
                     startActivity(Intent(this, AboutActivity::class.java))
                 }
             }
-            // 关闭侧栏
             drawerLayout.closeDrawer(GravityCompat.START)
             true
         }
@@ -216,29 +232,20 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * 检查权限状态
-     * 检查应用所需的各种权限，并在权限缺失时显示提示横幅
      */
     private fun checkPermissions() {
         lifecycleScope.launch {
-            // 检查无障碍服务是否启用
             val accessibilityEnabled = isAccessibilityServiceEnabled()
-
-            // 检查输入法是否启用
             val inputMethodEnabled = MyInputMethodService.isEnabled(this@MainActivity)
             val textInputMode = SettingsPrefs.textInputMode(this@MainActivity).first()
-
-            // 检查录音权限
             val audioPermission = ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) ==
                     PackageManager.PERMISSION_GRANTED
-
-            // 检查悬浮窗权限
             val overlayPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 Settings.canDrawOverlays(this@MainActivity)
             } else {
                 true
             }
 
-            // 收集未开启的权限
             val missingPermissions = mutableListOf<String>()
             if (!accessibilityEnabled) missingPermissions.add(getString(R.string.permission_accessibility))
             if (textInputMode == TextInputMode.IME_SIMULATION && !inputMethodEnabled) {
@@ -247,7 +254,6 @@ class MainActivity : AppCompatActivity() {
             if (!audioPermission) missingPermissions.add(getString(R.string.permission_audio))
             if (!overlayPermission) missingPermissions.add(getString(R.string.permission_overlay))
 
-            // 根据权限状态显示/隐藏横幅
             if (missingPermissions.isNotEmpty()) {
                 permissionBanner.visibility = View.VISIBLE
                 tvPermissionHint.text = getString(R.string.permission_required_hint) + "\n" +
@@ -269,31 +275,27 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * 设置聊天消息列表
-     * 配置RecyclerView和适配器
      */
     private fun setupChatList() {
         chatAdapter = ChatMessageAdapter()
-
         rvChatMessages.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = chatAdapter
         }
-
         updateEmptyState()
     }
 
-    /**
-     * 更新空状态显示
-     * 根据消息列表是否为空来显示/隐藏空状态提示
-     */
     private fun updateEmptyState() {
         emptyState.visibility = if (chatAdapter.itemCount == 0) View.VISIBLE else View.GONE
         rvChatMessages.visibility = if (chatAdapter.itemCount == 0) View.GONE else View.VISIBLE
     }
 
     /**
-     * 设置语音识别
-     * 初始化百度语音管理器并设置回调
+     * 设置语音识别。
+     *
+     * 与悬浮窗的差异：
+     * - 主界面 PressToTalkController 调 start(autoStopOnSilence=false) → 录音不会被 VAD 静音自动结束
+     * - 悬浮窗 / 唤醒词链路调默认 start() → autoStopOnSilence=true，VAD 自动停
      */
     private fun setupSpeechManager() {
         speechManager = BaiduSpeechManager(this)
@@ -308,44 +310,49 @@ class MainActivity : AppCompatActivity() {
         speechManager.setCallback(object : BaiduSpeechManager.Callback {
             override fun onReady() {
                 runOnUiThread {
-                    updateVoiceButtonState(true)
                     Toast.makeText(this@MainActivity, R.string.voice_listening, Toast.LENGTH_SHORT).show()
                 }
             }
 
             override fun onResult(text: String) {
                 runOnUiThread {
-                    updateVoiceButtonState(false)
+                    // 识别成功后自动切回键盘模式，让用户立刻看到回填文字、可编辑
+                    if (inputMode == InputMode.VOICE) {
+                        switchInputMode(InputMode.KEYBOARD)
+                    }
                     etInput.setText(text)
                     etInput.setSelection(text.length)
+                    btnSend.isEnabled = text.isNotBlank()
                 }
             }
 
             override fun onError(message: String) {
                 runOnUiThread {
-                    updateVoiceButtonState(false)
                     Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
                 }
             }
 
             override fun onEnd() {
-                runOnUiThread {
-                    updateVoiceButtonState(false)
-                }
+                // 录音流程结束（识别请求前）。气泡的隐藏由 PressToTalkController
+                // 在 ACTION_UP/CANCEL 主动控制，这里不重复操作 UI。
             }
 
             override fun onVolumeChanged(volume: Int) {
-                // 录音中按音量轻微缩放按钮，让"正在录音"更直观
                 runOnUiThread {
-                    if (!btnVoice.isActivated) return@runOnUiThread
-                    val scale = 1f + (volume.coerceIn(0, 100) / 250f)  // 1.0–1.4
-                    btnVoice.animate().scaleX(scale).scaleY(scale)
-                        .setDuration(80L).start()
+                    // 气泡音波（仅在按住模式且气泡可见时驱动）
+                    if (voiceBubble.visibility == View.VISIBLE) {
+                        waveformView.setVolume(volume)
+                    }
+                    // 按住按钮的轻微缩放律动
+                    if (btnPressToTalk.isPressed) {
+                        val scale = 1f + (volume.coerceIn(0, 100) / 400f)  // 1.0–1.25
+                        btnPressToTalk.animate().scaleX(scale).scaleY(scale).setDuration(80L).start()
+                    }
                 }
             }
         })
 
-        // 订阅噪声级别 → 右上小圆点变色（低通滤波：颜色稳定 1.5s 才切，避免说话时 SNR 跳变导致频繁闪烁）
+        // 订阅噪声级别 → 右上小圆点变色（低通滤波：颜色稳定 1.5s 才切，避免说话时 SNR 跳变频繁闪烁）
         noiseLevelJob?.cancel()
         noiseLevelJob = lifecycleScope.launch {
             var lastAppliedLevel: NoiseLevel? = null
@@ -360,37 +367,16 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-
-        // 语音按钮点击事件
-        btnVoice.setOnClickListener {
-            clearInputFocus()
-            if (speechManager.isListening()) {
-                speechManager.stop()
-                updateVoiceButtonState(false)
-            } else {
-                // 未配置百度凭据时直接引导去 API 配置页，而不是走到 speechManager 内部报错
-                if (latestBaiduCredentials?.isValid != true) {
-                    Toast.makeText(this, R.string.api_config_voice_needs_baidu, Toast.LENGTH_LONG).show()
-                    startActivity(Intent(this, ApiConfigActivity::class.java))
-                    return@setOnClickListener
-                }
-                checkPermissionAndStartSpeech()
-            }
-        }
     }
 
     /**
-     * 设置输入区域
-     * 配置文本输入框和发送按钮的行为
+     * 设置输入区域：文本框监听 + 发送按钮 + 回车发送。
      */
     private fun setupInputArea() {
-        // 文本输入框监听
         etInput.addTextChangedListener {
-            // 可以在这里启用/禁用发送按钮
             btnSend.isEnabled = !it.isNullOrBlank()
         }
 
-        // 发送按钮点击事件
         btnSend.setOnClickListener {
             val inputText = etInput.text?.toString()?.trim()
             if (!inputText.isNullOrBlank()) {
@@ -398,10 +384,232 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 输入框回车键发送（可选）
         etInput.setOnEditorActionListener { _, _, _ ->
             btnSend.performClick()
             true
+        }
+    }
+
+    /**
+     * 输入模式切换按钮点击：键盘 ↔ 语音
+     */
+    private fun setupInputModeToggle() {
+        btnInputMode.setOnClickListener {
+            switchInputMode(if (inputMode == InputMode.KEYBOARD) InputMode.VOICE else InputMode.KEYBOARD)
+        }
+    }
+
+    /**
+     * 给"按住说话"按钮装上触摸状态机
+     */
+    private fun setupPressToTalk() {
+        val threshold = resources.displayMetrics.density * SWIPE_UP_CANCEL_THRESHOLD_DP
+        pressToTalkController = PressToTalkController(btnPressToTalk, threshold)
+        btnPressToTalk.setOnTouchListener(pressToTalkController)
+    }
+
+    /**
+     * 切换输入模式：键盘 ↔ 语音。
+     * - KEYBOARD：tilInput 可见，btnPressToTalk gone，btnSend 可见，btnInputMode 显示麦克风
+     * - VOICE：tilInput gone，btnPressToTalk 可见，btnSend gone，btnInputMode 显示键盘；自动收键盘
+     */
+    private fun switchInputMode(target: InputMode) {
+        if (inputMode == target) return
+        inputMode = target
+        when (target) {
+            InputMode.KEYBOARD -> {
+                tilInput.visibility = View.VISIBLE
+                btnPressToTalk.visibility = View.GONE
+                btnSend.visibility = View.VISIBLE
+                btnInputMode.setImageResource(android.R.drawable.ic_btn_speak_now)
+            }
+            InputMode.VOICE -> {
+                clearInputFocus()
+                tilInput.visibility = View.GONE
+                btnPressToTalk.visibility = View.VISIBLE
+                btnSend.visibility = View.GONE
+                btnInputMode.setImageResource(R.drawable.ic_keyboard)
+            }
+        }
+    }
+
+    /**
+     * 显示中央录音气泡：弹出 + 启动音波 + 噪声指示。
+     * 在 PressToTalkController.handleDown 调用。
+     */
+    private fun showVoiceBubble() {
+        setVoiceBubbleCancelMode(false)
+        voiceBubble.visibility = View.VISIBLE
+        voiceBubble.alpha = 0f
+        voiceBubble.scaleX = 0.85f
+        voiceBubble.scaleY = 0.85f
+        voiceBubble.animate().alpha(1f).scaleX(1f).scaleY(1f)
+            .setDuration(150L)
+            .start()
+        waveformView.start()
+        noiseIndicator.visibility = View.VISIBLE
+        applyNoiseLevel(speechManager.noiseLevel.value)
+    }
+
+    /**
+     * 隐藏中央录音气泡：淡出 + 停止音波 + 噪声指示。
+     * 在 PressToTalkController.handleUp/handleCancel 以及 onPause/onDestroy 调用。
+     */
+    private fun hideVoiceBubble() {
+        if (voiceBubble.visibility != View.VISIBLE) return
+        waveformView.stop()
+        voiceBubble.animate().alpha(0f).scaleX(0.85f).scaleY(0.85f)
+            .setDuration(120L)
+            .withEndAction {
+                voiceBubble.visibility = View.GONE
+                voiceBubble.scaleX = 1f
+                voiceBubble.scaleY = 1f
+                voiceBubble.alpha = 1f
+            }
+            .start()
+        noiseIndicator.visibility = View.GONE
+    }
+
+    /**
+     * 切换气泡的"将取消"态视觉。上滑切 true，滑回切 false。
+     */
+    private fun setVoiceBubbleCancelMode(willCancel: Boolean) {
+        if (willCancel) {
+            voiceBubble.setBackgroundResource(R.drawable.bg_voice_bubble_cancel)
+            ivBubbleIcon.setImageResource(R.drawable.ic_voice_cancel)
+            tvBubbleHint.setText(R.string.voice_release_to_cancel)
+        } else {
+            voiceBubble.setBackgroundResource(R.drawable.bg_voice_bubble)
+            ivBubbleIcon.setImageResource(android.R.drawable.ic_btn_speak_now)
+            tvBubbleHint.setText(R.string.voice_swipe_up_hint)
+        }
+    }
+
+    /**
+     * 「按住说话」按钮的触摸状态机。
+     *
+     * 状态：
+     * - DOWN：检查权限/凭据/任务态，通过则 start(autoStopOnSilence=false) + 弹气泡
+     * - MOVE：上滑超过阈值切"将取消"态，滑回切回"将提交"
+     * - UP：松手前 willCancel=true 走 cancel()，否则 stop() 让录音送识别
+     * - CANCEL：系统中断（来电、抢焦点）等同 cancel
+     *
+     * 防误触：按压 < 300ms 视为误操作，cancel + Toast。
+     * 兜底：BaiduSpeechManager 内 HOLD_TO_TALK_MAX_DURATION_MS = 60s 防忘记松手。
+     */
+    private inner class PressToTalkController(
+        private val button: Button,
+        private val swipeUpThresholdPx: Float,
+    ) : View.OnTouchListener {
+
+        private var downY = 0f
+        private var downTimeMs = 0L
+        private var isRecording = false
+        private var willCancel = false
+
+        @SuppressLint("ClickableViewAccessibility")
+        override fun onTouch(v: View, ev: MotionEvent): Boolean {
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> handleDown(ev)
+                MotionEvent.ACTION_MOVE -> handleMove(ev)
+                MotionEvent.ACTION_UP -> handleUp()
+                MotionEvent.ACTION_CANCEL -> handleCancel()
+            }
+            return true
+        }
+
+        private fun handleDown(ev: MotionEvent) {
+            // 任务执行中拒绝，避免与 ChatViewModel 状态冲突
+            if (ChatViewModel.executionState.value.isRunning) {
+                Toast.makeText(this@MainActivity, R.string.task_already_running, Toast.LENGTH_SHORT).show()
+                return
+            }
+            // 凭据未配则引导去 API 配置页
+            if (latestBaiduCredentials?.isValid != true) {
+                Toast.makeText(this@MainActivity, R.string.api_config_voice_needs_baidu, Toast.LENGTH_LONG).show()
+                startActivity(Intent(this@MainActivity, ApiConfigActivity::class.java))
+                return
+            }
+            // 权限未给则申请；用户授予后需主动再按一次
+            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+                requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                return
+            }
+
+            downY = ev.rawY
+            downTimeMs = System.currentTimeMillis()
+            willCancel = false
+            isRecording = true
+
+            button.isPressed = true
+            button.isActivated = false
+            button.text = getString(R.string.voice_release_to_finish)
+
+            showVoiceBubble()
+            speechManager.start(autoStopOnSilence = false)
+        }
+
+        private fun handleMove(ev: MotionEvent) {
+            if (!isRecording) return
+            val dy = downY - ev.rawY  // 上滑为正
+            val nextWillCancel = dy > swipeUpThresholdPx
+            if (nextWillCancel != willCancel) {
+                willCancel = nextWillCancel
+                button.isActivated = willCancel
+                button.text = getString(
+                    if (willCancel) R.string.voice_release_to_cancel
+                    else R.string.voice_release_to_finish
+                )
+                setVoiceBubbleCancelMode(willCancel)
+            }
+        }
+
+        private fun handleUp() {
+            if (!isRecording) return
+            isRecording = false
+            resetButtonVisual()
+            hideVoiceBubble()
+
+            val pressDuration = System.currentTimeMillis() - downTimeMs
+            if (pressDuration < MIN_PRESS_DURATION_MS) {
+                speechManager.cancel()
+                Toast.makeText(this@MainActivity, R.string.voice_press_too_short, Toast.LENGTH_SHORT).show()
+                return
+            }
+            if (willCancel) {
+                speechManager.cancel()
+            } else {
+                // stop 让录音循环退出，已录音频送识别 → onResult 回填
+                speechManager.stop()
+            }
+        }
+
+        private fun handleCancel() {
+            if (!isRecording) return
+            isRecording = false
+            resetButtonVisual()
+            hideVoiceBubble()
+            speechManager.cancel()
+        }
+
+        /** 录音结束统一恢复按钮视觉 */
+        private fun resetButtonVisual() {
+            button.isPressed = false
+            button.isActivated = false
+            button.text = getString(R.string.voice_hold_to_speak)
+            button.animate().cancel()
+            button.scaleX = 1f
+            button.scaleY = 1f
+        }
+
+        /** Activity 生命周期切走时强制结束录音，对应 onPause/onDestroy。 */
+        fun forceCancel() {
+            if (!isRecording) return
+            isRecording = false
+            resetButtonVisual()
+            hideVoiceBubble()
+            speechManager.cancel()
         }
     }
 
@@ -425,9 +633,6 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * 执行任务
-     * 调用ChatViewModel执行AI任务
-     *
-     * @param command 用户指令
      */
     private fun executeTask(command: String) {
         lifecycleScope.launch {
@@ -451,21 +656,18 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * 观察任务执行状态
-     * 显示每次任务的用户指令、执行过程和结果（统一入口，避免与本地发送重复）
      */
     private fun observeExecutionState() {
         lifecycleScope.launch {
             var lastTaskTitle = ""
             var lastCompletionKey = ""
             ChatViewModel.executionState.collect { state ->
-                // 任务开始时，重置去重key并显示用户指令
                 if (state.isRunning && state.taskTitle.isNotBlank() && state.taskTitle != lastTaskTitle) {
                     lastCompletionKey = ""
                     lastTaskTitle = state.taskTitle
                     addUserMessage(state.taskTitle)
                     addSystemMessage("正在执行：${state.taskTitle}")
                 }
-                // 任务完成时，显示结果（同一结果只显示一次，避免 Activity 重建后重放）
                 if (state.isCompleted && state.resultMessage.isNotBlank()) {
                     val key = "${state.isSuccess}|${state.isCancelled}|${state.resultMessage}"
                     if (key != lastCompletionKey) {
@@ -483,9 +685,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * 添加用户消息到聊天列表
-     */
     private fun addUserMessage(text: String) {
         chatMessages.add(ChatMessageAdapter.ChatMessageItem(content = text, isUser = true))
         chatAdapter.submitList(chatMessages.toList())
@@ -493,9 +692,6 @@ class MainActivity : AppCompatActivity() {
         updateEmptyState()
     }
 
-    /**
-     * 添加系统消息到聊天列表
-     */
     private fun addSystemMessage(text: String) {
         chatMessages.add(ChatMessageAdapter.ChatMessageItem(content = text, isUser = false))
         chatAdapter.submitList(chatMessages.toList())
@@ -503,109 +699,17 @@ class MainActivity : AppCompatActivity() {
         updateEmptyState()
     }
 
-    /**
-     * 检查权限并启动语音识别
-     * 如果有录音权限则直接启动，否则请求权限
-     */
-    private fun checkPermissionAndStartSpeech() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-            == PackageManager.PERMISSION_GRANTED) {
-            startSpeechRecognition()
-        } else {
-            requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        }
-    }
-
-    /**
-     * 启动语音识别
-     */
-    private fun startSpeechRecognition() {
-        speechManager.start()
-    }
-
-    /**
-     * 更新语音按钮状态
-     *
-     * @param isListening 是否正在聆听
-     */
-    /**
-     * 隐藏软键盘
-     */
+    /** 隐藏软键盘 */
     private fun hideKeyboard() {
         val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
         val token = currentFocus?.windowToken ?: etInput.windowToken ?: return
         imm.hideSoftInputFromWindow(token, 0)
     }
 
-    /**
-     * 清除输入框焦点并收起键盘
-     * 点击其它按钮、返回页面、切 Activity 时统一调用，避免输入框残留 focus
-     */
+    /** 清除输入框焦点并收起键盘 */
     private fun clearInputFocus() {
-        // 先收键盘（依赖 focus 取 windowToken），再清 focus
         hideKeyboard()
         etInput.clearFocus()
-    }
-
-    private fun updateVoiceButtonState(isListening: Boolean) {
-        voiceBackgroundAnimator?.cancel()
-
-        if (isListening) {
-            val redColor = ContextCompat.getColor(this, R.color.voice_button_recording)
-            voiceButtonBackground = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(android.graphics.Color.TRANSPARENT)
-                setPadding(10, 10, 10, 10)
-            }
-            btnVoice.background = voiceButtonBackground
-            btnVoice.imageTintList = android.content.res.ColorStateList.valueOf(
-                ContextCompat.getColor(this, R.color.white)
-            )
-
-            voiceBackgroundAnimator = ValueAnimator.ofObject(
-                ArgbEvaluator(), android.graphics.Color.TRANSPARENT, redColor
-            ).apply {
-                duration = 300L
-                addUpdateListener { animator ->
-                    voiceButtonBackground?.setColor(animator.animatedValue as Int)
-                }
-                start()
-            }
-
-            noiseIndicator.visibility = View.VISIBLE
-            applyNoiseLevel(speechManager.noiseLevel.value)
-        } else {
-            val redColor = ContextCompat.getColor(this, R.color.voice_button_recording)
-            val bg = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(redColor)
-                setPadding(10, 10, 10, 10)
-            }
-            btnVoice.background = bg
-            voiceButtonBackground = bg
-
-            voiceBackgroundAnimator = ValueAnimator.ofObject(
-                ArgbEvaluator(), redColor, android.graphics.Color.TRANSPARENT
-            ).apply {
-                duration = 200L
-                addUpdateListener { animator ->
-                    voiceButtonBackground?.setColor(animator.animatedValue as Int)
-                }
-                addListener(object : android.animation.AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: android.animation.Animator) {
-                        // 保留 GradientDrawable，颜色已是透明
-                        voiceButtonBackground?.setColor(android.graphics.Color.TRANSPARENT)
-                    }
-                })
-                start()
-            }
-
-            btnVoice.imageTintList = null
-            btnVoice.animate().cancel()
-            btnVoice.scaleX = 1f
-            btnVoice.scaleY = 1f
-            noiseIndicator.visibility = View.GONE
-        }
     }
 
     private fun applyNoiseLevel(level: NoiseLevel) {
@@ -621,7 +725,6 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * 检查无障碍服务是否已启用
-     * 使用AccessibilityManager检查系统中是否启用了当前应用的无障碍服务
      */
     private fun isAccessibilityServiceEnabled(): Boolean {
         try {
@@ -641,7 +744,6 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * 打开系统权限设置页面
-     * 跳转至无障碍服务和输入法设置页面
      */
     private fun openAccessibilitySettings() {
         lifecycleScope.launch {
@@ -663,25 +765,21 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * 设置窗口Insets
-     * 处理系统状态栏和导航栏的适配，以及键盘弹出时的布局调整
      */
     private fun setupWindowInsets() {
         val toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
         val contentLayout = findViewById<androidx.constraintlayout.widget.ConstraintLayout>(R.id.contentLayout)
 
-        // 为Toolbar设置顶部padding，避免被状态栏覆盖
         ViewCompat.setOnApplyWindowInsetsListener(toolbar) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(0, systemBars.top, 0, 0)
             insets
         }
 
-        // 处理键盘弹出时为底部输入栏留出空间
         ViewCompat.setOnApplyWindowInsetsListener(contentLayout) { v, insets ->
             val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
             val systemBarsInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
 
-            // 设置底部padding以避开键盘
             v.setPadding(
                 systemBarsInsets.left,
                 0,
@@ -692,29 +790,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * 生命周期 - onResume
-     * 返回界面时由 onWindowFocusChanged 统一刷新权限状态
-     */
     override fun onResume() {
         super.onResume()
-        // 返回页面时，避免系统把上次的焦点还原到输入框
         clearInputFocus()
     }
 
-    /**
-     * 生命周期 - onPause
-     * 离开页面前先卸掉输入焦点，防止系统在 onResume 时自动恢复
-     */
     override fun onPause() {
         super.onPause()
+        // 录音中切走 Activity 时强制结束，避免悬挂的 mic + 残留气泡
+        pressToTalkController?.forceCancel()
         clearInputFocus()
     }
 
-    /**
-     * 窗口焦点变化时刷新权限状态
-     * 当用户从设置页面返回时，及时更新权限横幅显示
-     */
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
@@ -722,9 +809,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * 处理返回手势/返回键：优先关闭侧栏
-     */
     private fun setupBackPressedHandler() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -738,15 +822,11 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    /**
-     * 生命周期 - onDestroy
-     * 释放语音管理器资源
-     */
     override fun onDestroy() {
         super.onDestroy()
+        pressToTalkController?.forceCancel()
         speechManager.destroy()
         noiseLevelJob?.cancel()
-        voiceBackgroundAnimator?.cancel()
         MyAccessibilityService.suspendFloatingOverlays()
     }
 

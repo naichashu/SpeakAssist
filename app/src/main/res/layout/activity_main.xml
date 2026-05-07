@@ -135,12 +135,63 @@
 
         </LinearLayout>
 
+        <!-- 中央录音气泡 -->
+        <!-- 长按"按住说话"时浮现，含音波动画 + 状态文案；gone 时不参与布局也不拦截事件 -->
+        <FrameLayout
+            android:id="@+id/voiceBubble"
+            android:layout_width="180dp"
+            android:layout_height="180dp"
+            android:background="@drawable/bg_voice_bubble"
+            android:elevation="16dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/permissionBanner"
+            app:layout_constraintBottom_toTopOf="@id/inputContainer"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            tools:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="20dp">
+
+                <!-- 状态图标：默认麦克风 / 取消态 X -->
+                <ImageView
+                    android:id="@+id/ivBubbleIcon"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:src="@android:drawable/ic_btn_speak_now"
+                    android:tint="@android:color/white"
+                    android:contentDescription="@string/voice_input_description" />
+
+                <!-- 音波动画 -->
+                <com.example.ui.widget.WaveformView
+                    android:id="@+id/waveformView"
+                    android:layout_width="120dp"
+                    android:layout_height="28dp"
+                    android:layout_marginTop="14dp" />
+
+                <!-- 状态提示文案 -->
+                <TextView
+                    android:id="@+id/tvBubbleHint"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="@string/voice_swipe_up_hint"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </FrameLayout>
+
         <!-- 底部输入栏容器 -->
         <LinearLayout
             android:id="@+id/inputContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
+            android:gravity="center_vertical"
             android:padding="8dp"
             android:background="@android:color/white"
             android:elevation="8dp"
@@ -148,40 +199,55 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
 
-            <!-- 文本输入框 -->
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/tilInput"
+            <!-- 输入模式切换按钮（最左）：键盘模式显示麦克风，语音模式显示键盘 -->
+            <ImageButton
+                android:id="@+id/btnInputMode"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="4dp"
+                android:src="@android:drawable/ic_btn_speak_now"
+                android:contentDescription="@string/voice_input_mode_toggle"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:padding="6dp" />
+
+            <!-- 输入区：键盘模式 (tilInput) 与语音模式 (btnPressToTalk) 互斥；
+                 噪声指示叠在右上 -->
+            <FrameLayout
+                android:id="@+id/inputArea"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:hint="@string/input_hint"
-                style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+                android:minHeight="56dp">
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/etInput"
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilInput"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:maxLines="3"
-                    android:inputType="textMultiLine"
-                    android:imeOptions="actionSend" />
+                    android:layout_gravity="center_vertical"
+                    android:hint="@string/input_hint"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
 
-            </com.google.android.material.textfield.TextInputLayout>
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:maxLines="3"
+                        android:inputType="textMultiLine"
+                        android:imeOptions="actionSend" />
 
-            <!-- 语音输入按钮 + 噪声指示叠加 -->
-            <FrameLayout
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_marginStart="8dp"
-                android:layout_gravity="center_vertical">
+                </com.google.android.material.textfield.TextInputLayout>
 
-                <ImageButton
-                    android:id="@+id/btnVoice"
+                <!-- 按住说话按钮：语音模式可见，键盘模式 gone -->
+                <Button
+                    android:id="@+id/btnPressToTalk"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:src="@android:drawable/ic_btn_speak_now"
-                    android:contentDescription="@string/voice_input_description"
-                    android:background="@drawable/bg_voice_button"
-                    android:padding="10dp" />
+                    android:layout_height="48dp"
+                    android:layout_gravity="center_vertical"
+                    android:text="@string/voice_hold_to_speak"
+                    android:textColor="@android:color/black"
+                    android:background="@drawable/bg_press_to_talk"
+                    android:visibility="gone"
+                    tools:visibility="gone" />
 
                 <View
                     android:id="@+id/noiseIndicator"
@@ -194,13 +260,12 @@
                     android:visibility="gone" />
             </FrameLayout>
 
-            <!-- 发送按钮 -->
+            <!-- 发送按钮：键盘模式可见，语音模式 gone -->
             <ImageButton
                 android:id="@+id/btnSend"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:layout_marginStart="4dp"
-                android:layout_gravity="center_vertical"
                 android:src="@android:drawable/ic_menu_send"
                 android:contentDescription="@string/send_message"
                 android:background="?attr/selectableItemBackgroundBorderless" />

@@ -45,6 +45,12 @@ class BaiduSpeechManager(private val context: Context) {
         private const val SAMPLE_RATE = 16000
         private const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
         private const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
+
+        /**
+         * 按住说话模式的录音上限。用户松手前最多录这么久。
+         * 设 60s 是为了兼顾"长指令" + "防止用户忘记松手"。
+         */
+        private const val HOLD_TO_TALK_MAX_DURATION_MS = 60_000L
     }
 
     private var apiKey: String = ""
@@ -55,6 +61,15 @@ class BaiduSpeechManager(private val context: Context) {
     private var isListening = false
     private var isRecording = false
     private val sessionCounter = AtomicInteger(0)
+
+    /**
+     * 当前会话是否允许 VAD 静音自动结束。
+     * - true（默认，悬浮窗 / 唤醒词链路使用）：检测到静音停顿自动 stop 录音
+     * - false（主界面按住说话使用）：录音直到用户主动 stop()/cancel() 或达到 maxRecordingDurationMs
+     *
+     * 由 start(autoStopOnSilence) 在每次启动时设置。
+     */
+    private var autoStopOnSilence: Boolean = true
 
     private var audioRecord: AudioRecord? = null
     private var recordingJob: Job? = null
@@ -91,10 +106,21 @@ class BaiduSpeechManager(private val context: Context) {
     fun isListening(): Boolean = isListening || recordingJob?.isActive == true
 
     /**
-     * 开始语音识别
+     * 开始语音识别（默认行为：VAD 静音自动结束）。
+     * 悬浮窗、唤醒词等无键盘场景调用此重载。
      */
-    fun start() {
-        Log.d(TAG, "start() called")
+    fun start() = start(autoStopOnSilence = true)
+
+    /**
+     * 开始语音识别。
+     *
+     * @param autoStopOnSilence 是否在检测到静音时自动结束录音。
+     *   - true：默认行为，VAD 静音判定到位即 stop。适合悬浮窗、唤醒词。
+     *   - false：录音不会因静音被打断，仅响应外部 stop()/cancel() 或 maxRecordingDurationMs 兜底。
+     *     适合主界面"按住说话"，由用户松手触发结束。
+     */
+    fun start(autoStopOnSilence: Boolean) {
+        Log.d(TAG, "start(autoStopOnSilence=$autoStopOnSilence) called")
 
         if (isListening()) {
             Log.d(TAG, "Already listening")
@@ -111,6 +137,7 @@ class BaiduSpeechManager(private val context: Context) {
             return
         }
 
+        this.autoStopOnSilence = autoStopOnSilence
         val sessionId = sessionCounter.incrementAndGet()
         recordingJob = scope.launch {
             try {
@@ -287,8 +314,15 @@ class BaiduSpeechManager(private val context: Context) {
         }
         val noiseFloorRms = environmentAnalyzer.getInitialNoiseFloorRms()
         val vadParams = selectVadParams(noiseFloorRms)
+        // 按住说话模式下用独立上限，避免 QUIET 档位 30s 太短打断长指令；
+        // 自动 VAD 模式仍按 vadParams 走（用户场景一般都不会录这么久）。
+        val maxDurationMs = if (autoStopOnSilence) {
+            vadParams.maxRecordingDurationMs
+        } else {
+            HOLD_TO_TALK_MAX_DURATION_MS
+        }
         Log.d(TAG, "语音输入预学习完成，基底 RMS=${"%.1f".format(noiseFloorRms)}, " +
-            "VAD=${vadParams}")
+            "VAD=${vadParams}, 录音上限=${maxDurationMs}ms, autoStop=${autoStopOnSilence}")
 
         // 录音循环
         val startTime = System.currentTimeMillis()
@@ -296,7 +330,7 @@ class BaiduSpeechManager(private val context: Context) {
         var silenceStartTime = 0L
 
         while (isSessionActive(sessionId) && isRecording &&
-            System.currentTimeMillis() - startTime < vadParams.maxRecordingDurationMs) {
+            System.currentTimeMillis() - startTime < maxDurationMs) {
             val read = audioRecord?.read(buffer, 0, buffer.size) ?: -1
             if (read > 0) {
                 audioData.write(buffer, 0, read)
@@ -312,11 +346,13 @@ class BaiduSpeechManager(private val context: Context) {
                 }
 
                 // 静音检测逻辑（动态阈值）
+                // 按住说话模式（autoStopOnSilence=false）下不自动停，仅用 EnvironmentAnalyzer 测量噪声驱动 UI；
+                // 录音由用户松手触发的 stop()/cancel() 或 maxRecordingDurationMs 兜底结束。
                 val now = System.currentTimeMillis()
                 if (rms > vadParams.energyThreshold) {
                     hasSpeech = true
                     silenceStartTime = 0L
-                } else if (hasSpeech) {
+                } else if (hasSpeech && autoStopOnSilence) {
                     if (silenceStartTime == 0L) {
                         silenceStartTime = now
                     }
