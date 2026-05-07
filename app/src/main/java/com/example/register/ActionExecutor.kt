@@ -8,6 +8,7 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.google.gson.stream.JsonReader
 import java.io.StringReader
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.delay
 
 /**
@@ -229,6 +230,8 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                             // 处理动作对象
                             return processActionObject(actionObj, screenWidth, screenHeight)
                         }
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         Log.w(TAG, "修复后的 JSON 仍然无法解析", e)
                     }
@@ -242,12 +245,16 @@ class ActionExecutor(private val service: MyAccessibilityService) {
 
             val jsonElement = try {
                 JsonParser.parseString(jsonString)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.w(TAG, "标准解析失败，尝试 lenient 模式", e)
                 try {
                     val reader = JsonReader(StringReader(jsonString))
                     reader.isLenient = true
                     JsonParser.parseReader(reader)
+                } catch (e2: CancellationException) {
+                    throw e2
                 } catch (e2: Exception) {
                     Log.e(TAG, "Lenient 模式也失败", e2)
                     val fixedJson = tryFixMalformedJson(jsonString)
@@ -258,6 +265,8 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                                 screenWidth,
                                 screenHeight
                             )
+                        } catch (e3: CancellationException) {
+                            throw e3
                         } catch (e3: Exception) {
                             Log.e(TAG, "修复后仍然无法解析", e3)
                         }
@@ -279,6 +288,8 @@ class ActionExecutor(private val service: MyAccessibilityService) {
             Log.d(TAG, "解析成功，对象: $actionObj")
 
             processActionObject(actionObj, screenWidth, screenHeight)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "解析动作失败", e)
             ActionResult(success = false, message = "解析动作失败: ${e.message}")
@@ -313,6 +324,8 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                         try {
                             JsonParser.parseString(candidate)
                             jsonCandidates.add(candidate)
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                         }
                         startIndex = -1
@@ -381,6 +394,8 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                 "wait" -> wait(actionObj)
                 else -> ActionResult(success = false, message = "不支持的操作: $action")
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "执行动作异常: $action", e)
             ActionResult(success = false, message = "执行动作失败: $action - ${e.message}")
@@ -429,6 +444,8 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                 message = "成功启动 app: $appName",
                 actionDetail = ActionDetail(type = "launch", text = appName, waitMs = LAUNCH_SETTLE_DELAY_MS)
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             // 7. 捕获所有可能的运行时异常，优雅返回错误结果
             return ActionResult(
@@ -659,6 +676,8 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                     message = "滑动执行失败"
                 )
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "滑动执行异常", e)
             ActionResult(
@@ -688,6 +707,8 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                     message = "执行返回失败：设备可能不支持此操作"
                 )
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "执行返回异常", e)
             ActionResult(
@@ -717,6 +738,8 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                     message = "执行返回桌面失败：设备可能不支持此操作"
                 )
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "执行返回桌面异常", e)
             ActionResult(
@@ -786,6 +809,8 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                     message = "长按执行失败"
                 )
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "长按执行异常", e)
             ActionResult(
@@ -855,6 +880,8 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                     message = "双击执行失败"
                 )
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "双击执行异常", e)
             ActionResult(
