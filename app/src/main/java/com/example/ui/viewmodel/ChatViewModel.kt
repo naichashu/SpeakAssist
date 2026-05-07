@@ -17,12 +17,14 @@ import com.example.register.ActionResult
 import com.example.input.TextInputMode
 import com.example.register.AppRegister
 import com.example.service.MyAccessibilityService
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -395,6 +397,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * 结束任务，更新数据库状态并返回结果
+     *
+     * 关键时序：必须先做同步状态更新（_executionState、messageContext），
+     * 再做 suspend 写库。原因：当外部协程已被取消（如 Activity 划走触发
+     * lifecycleScope.cancel()）时，按 Kotlin 协程"prompt cancellation"
+     * 语义，下一次 suspend 调用立即抛 CancellationException。如果先调
+     * suspend 写库，_executionState 永远不会更新到 isCompleted=true，
+     * companion StateFlow 会卡在 isRunning=true，导致悬浮窗 UI 卡死、
+     * sendMessage 被并发护栏永久阻断。
+     *
+     * 数据库写入用 NonCancellable 包裹，保证即使 Job 已 cancel 也能落盘
+     * 状态，避免历史记录里的会话永远停留在 running。
      */
     private suspend fun finishTask(
         sessionId: Long,
@@ -407,7 +420,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             success -> "success"
             else -> "fail"
         }
-        db.taskSessionDao().updateStatus(sessionId, dbStatus)
         messageContext.clear()
         _executionState.value = _executionState.value.copy(
             isRunning = false,
@@ -416,6 +428,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             isCancelled = isCancelled,
             resultMessage = message
         )
+        withContext(NonCancellable) {
+            db.taskSessionDao().updateStatus(sessionId, dbStatus)
+        }
         return TaskResult(success, message)
     }
 
