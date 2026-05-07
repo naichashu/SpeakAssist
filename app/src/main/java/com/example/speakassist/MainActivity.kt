@@ -744,6 +744,20 @@ class MainActivity : AppCompatActivity() {
      */
     override fun onDestroy() {
         super.onDestroy()
+        // 用户划应用（最近任务列表移除）→ Activity onDestroy →
+        // lifecycleScope.cancel()。仅靠协程协作取消会让正在跑的
+        // executeTaskLoop 走异常路径退出，有概率让 HTTP 请求和已发出的
+        // dispatchGesture 来不及收尾；而悬浮窗启动的任务挂在 service-scope
+        // 上，根本不会被 lifecycleScope 取消影响——任务真的会继续在后台跑。
+        //
+        // 通过 companion object 的 _cancelRequested 信号，executeTaskLoop
+        // 下一轮 cancel 检查会主动取消 HTTP 并走 finishTask 收尾，
+        // 同时覆盖 MainActivity 启动和悬浮窗启动两条路径。
+        //
+        // isChangingConfigurations：横竖屏切换时为 true，此时不应取消任务。
+        if (!isChangingConfigurations && ChatViewModel.executionState.value.isRunning) {
+            ChatViewModel.requestCancel()
+        }
         speechManager.destroy()
         noiseLevelJob?.cancel()
         voiceBackgroundAnimator?.cancel()
