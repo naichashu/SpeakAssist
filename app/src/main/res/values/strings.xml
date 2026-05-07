@@ -54,6 +54,13 @@
     <string name="voice_input_description">语音输入</string>
     <string name="voice_listening">正在聆听...</string>
     <string name="voice_permission_required">需要录音权限才能使用语音输入</string>
+    <string name="voice_permission_granted_hint">已授予录音权限，请再次按住说话</string>
+    <string name="voice_input_mode_toggle">切换语音/键盘输入</string>
+    <string name="voice_hold_to_speak">按住 说话</string>
+    <string name="voice_release_to_finish">松开 结束</string>
+    <string name="voice_release_to_cancel">松开 取消</string>
+    <string name="voice_swipe_up_hint">手指上滑可取消</string>
+    <string name="voice_press_too_short">按住时间太短</string>
     <string name="text_input_mode_title">输入方式</string>
     <string name="text_input_mode_direct">直接设置文本（标准）</string>
     <string name="text_input_mode_ime">输入法模拟（最强）</string>

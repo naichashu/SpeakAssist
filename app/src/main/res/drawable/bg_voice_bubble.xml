@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    中央录音气泡的默认背景：80% 透明黑、圆角矩形。
+    取消态背景见 bg_voice_bubble_cancel.xml，由代码 setBackgroundResource 切换。
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#CC202020" />
+    <corners android:radius="20dp" />
+</shape>
