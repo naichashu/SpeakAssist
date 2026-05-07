@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.net.UnknownHostException
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -360,7 +361,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             throw e
         } catch (e: Exception) {
             Log.e(TAG, "executeTaskLoop 异常", e)
-            return finishTask(sessionId, false, "执行异常：${e.message ?: "未知错误"}")
+            return finishTask(sessionId, false, "执行异常：${toUserFacingError(e)}")
+        }
+    }
+
+    private fun toUserFacingError(e: Exception): String {
+        return when {
+            e is UnknownHostException || e.message?.contains("Unable to resolve host") == true ->
+                "设备网络或 DNS 无法解析模型服务，请检查手机网络/代理/DNS 后重试。原始错误：${e.message}"
+            e.message?.contains("timeout", ignoreCase = true) == true ->
+                "模型服务请求超时，请检查网络或稍后重试。原始错误：${e.message}"
+            else -> e.message ?: "未知错误"
         }
     }
 

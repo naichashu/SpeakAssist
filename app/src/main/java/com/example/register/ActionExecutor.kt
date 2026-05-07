@@ -137,7 +137,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                 } else if (functionName == "do") {
                     val action = mutableMapOf<String, Any>("_metadata" to "do")
                     val paramPattern = Regex(
-                        """(\w+)\s*=\s*(\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*'|\[[^\]]+\]|-?\d+\.?\d*|true|false|[A-Za-z_][A-Za-z0-9_]*)""",
+                        """(\w+)\s*=\s*(\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*'|\[[^\]]+\]|-?\d+\.?\d*|true|false|[^,\s)]+)""",
                         RegexOption.IGNORE_CASE
                     )
                     val paramMatches = paramPattern.findAll(paramsStr)

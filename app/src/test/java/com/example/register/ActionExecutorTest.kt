@@ -93,6 +93,19 @@ class ActionExecutorTest {
     }
 
     @Test
+    fun `do launch with unquoted Chinese app - 保留 app 参数`() {
+        val raw = """do(action=Launch, app=微信)"""
+
+        val json = JsonParser.parseString(
+            ActionExecutor.tryFixMalformedJson(raw)
+        ).asJsonObject
+
+        assertEquals("do", json.get("_metadata").asString)
+        assertEquals("Launch", json.get("action").asString)
+        assertEquals("微信", json.get("app").asString)
+    }
+
+    @Test
     fun `自然语言 打开微信 - 兜底转为 Launch action`() {
         // 用户/模型偶尔不按格式说话时，正则兜底能识别中文动作词
         val raw = "打开微信"

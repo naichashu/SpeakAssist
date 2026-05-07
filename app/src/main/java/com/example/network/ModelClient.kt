@@ -57,9 +57,10 @@ class ModelClient(
     init {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = if (com.example.speakassist.BuildConfig.DEBUG)
-                HttpLoggingInterceptor.Level.BODY
+                HttpLoggingInterceptor.Level.BASIC
             else
                 HttpLoggingInterceptor.Level.NONE
+            redactHeader("Authorization")
         }
 
         okHttpClient = OkHttpClient.Builder()
