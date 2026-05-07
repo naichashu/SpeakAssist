@@ -73,7 +73,7 @@ class ModelClient(
             .writeTimeout(30, TimeUnit.SECONDS)
             .build()
 
-        requestBaseUrl = checkAndFixUrl(baseUrl).ensureTrailingSlash()
+        requestBaseUrl = checkAndFixUrl(baseUrl).removeChatCompletionsSuffix().ensureTrailingSlash()
         Log.d(TAG, "ModelClient 初始化，baseUrl=$requestBaseUrl")
     }
 
@@ -87,6 +87,13 @@ class ModelClient(
             fixedUrl = "https://$fixedUrl"
         }
         return fixedUrl
+    }
+
+    private fun String.removeChatCompletionsSuffix(): String {
+        return removeSuffix("/chat/completions")
+            .removeSuffix("/chat/completions/")
+            .removeSuffix("chat/completions")
+            .removeSuffix("chat/completions/")
     }
 
     /**

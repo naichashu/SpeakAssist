@@ -427,7 +427,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
         scope.launch {
             try {
                 val viewModel = ChatViewModel(service.application)
-                val result = viewModel.executeTaskLoop(text, "autoglm-phone")
+                val result = viewModel.executeTaskLoop(text)
                 Log.d(TAG, "任务执行完成: ${result.success} - ${result.message}")
             } catch (e: Exception) {
                 Log.e(TAG, "任务执行失败", e)

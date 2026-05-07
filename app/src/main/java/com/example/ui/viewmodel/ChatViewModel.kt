@@ -87,7 +87,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    suspend fun executeTaskLoop(userPrompt: String, modelName: String): TaskResult {
+    suspend fun executeTaskLoop(userPrompt: String): TaskResult {
         Log.d(TAG, "开始执行任务")
         messageContext.clear()
 
@@ -107,9 +107,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             return failWithoutSession("请先在侧栏「API 配置」填写智谱 AutoGLM API Key")
         }
         // 每次任务都用最新 Key 重建 client，避免用户在配置页改了 Key 后 ViewModel 还用旧的
+        val modelName = SettingsPrefs.modelName(getApplication()).first()
         modelClient = ModelClient(
             getApplication(),
-            "https://open.bigmodel.cn/api/paas/v4",
+            SettingsPrefs.modelBaseUrl(getApplication()).first(),
             apiKey
         )
 

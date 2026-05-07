@@ -21,6 +21,11 @@ object SettingsPrefs {
     private val ZHIPU_API_KEY = stringPreferencesKey("zhipu_api_key")
     private val BAIDU_API_KEY = stringPreferencesKey("baidu_api_key")
     private val BAIDU_SECRET_KEY = stringPreferencesKey("baidu_secret_key")
+    private val MODEL_BASE_URL = stringPreferencesKey("model_base_url")
+    private val MODEL_NAME = stringPreferencesKey("model_name")
+
+    const val DEFAULT_MODEL_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
+    const val DEFAULT_MODEL_NAME = "autoglm-phone"
 
     fun floatingWindowEnabled(context: Context): Flow<Boolean> {
         return context.dataStore.data.map { prefs ->
@@ -85,5 +90,25 @@ object SettingsPrefs {
             prefs[BAIDU_API_KEY] = apiKey.trim()
             prefs[BAIDU_SECRET_KEY] = secretKey.trim()
         }
+    }
+
+    fun modelBaseUrl(context: Context): Flow<String> {
+        return context.dataStore.data.map { prefs ->
+            prefs[MODEL_BASE_URL]?.takeIf { it.isNotBlank() } ?: DEFAULT_MODEL_BASE_URL
+        }
+    }
+
+    fun modelName(context: Context): Flow<String> {
+        return context.dataStore.data.map { prefs ->
+            prefs[MODEL_NAME]?.takeIf { it.isNotBlank() } ?: DEFAULT_MODEL_NAME
+        }
+    }
+
+    suspend fun setModelBaseUrl(context: Context, value: String) {
+        context.dataStore.edit { prefs -> prefs[MODEL_BASE_URL] = value.trim() }
+    }
+
+    suspend fun setModelName(context: Context, value: String) {
+        context.dataStore.edit { prefs -> prefs[MODEL_NAME] = value.trim() }
     }
 }
