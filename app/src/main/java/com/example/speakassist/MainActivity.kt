@@ -747,7 +747,6 @@ class MainActivity : AppCompatActivity() {
         speechManager.destroy()
         noiseLevelJob?.cancel()
         voiceBackgroundAnimator?.cancel()
-        MyAccessibilityService.suspendFloatingOverlays()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

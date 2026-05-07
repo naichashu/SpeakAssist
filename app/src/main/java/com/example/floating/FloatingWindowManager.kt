@@ -193,8 +193,16 @@ class FloatingWindowManager(private val service: AccessibilityService) {
     fun suspendOverlays() {
         overlaysSuspended = true
         handler.post {
+            // 只销毁圆球（修 daab638 引入的"残留圆球"bug 的本意）+ 停掉唤醒词
+            // 不要碰 executionCardView / executionCancelChipView / isTaskRunning：
+            // 任务执行中即使 Activity 销毁，用户仍需看到进度反馈，
+            // 卡片由 ChatViewModel 的 finishTask → cleanup runnable 自然销毁。
             stopWakeWordListening()
-            hideAllOverlays()
+            speechManager.cancel()
+            circleView?.destroy()
+            circleView = null
+            // 不重置 companionShouldShowCircle：suspend 是临时挂起，
+            // 服务重启时仍应该能根据它恢复 circle
         }
     }
 
@@ -289,7 +297,8 @@ class FloatingWindowManager(private val service: AccessibilityService) {
     }
 
     private fun showExecutionCard(title: String) {
-        if (overlaysSuspended) return
+        // 不检查 overlaysSuspended：任务卡片只跟 isTaskRunning 绑定，
+        // 不受 Activity 生命周期影响（修 Bug A 的过度挂起）
         handler.post {
             executionCardView?.destroy()
             executionCardView = ExecutionCardView(service, windowManager)
@@ -298,7 +307,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
     }
 
     private fun showExecutionCancelChip() {
-        if (overlaysSuspended) return
+        // 同上，跟 isTaskRunning 绑定
         handler.post {
             executionCancelChipView?.destroy()
             executionCancelChipView = ExecutionCancelChipView(service, windowManager, object : ExecutionCancelChipView.Listener {
@@ -341,7 +350,8 @@ class FloatingWindowManager(private val service: AccessibilityService) {
 
     suspend fun restoreAfterScreenshot() {
         withContext(Dispatchers.Main.immediate) {
-            if (overlaysSuspended || !isTaskRunning) return@withContext
+            // 只看任务是否在跑；overlaysSuspended 不再阻挡任务卡片恢复（修 Bug A）
+            if (!isTaskRunning) return@withContext
             val card = executionCardView
             val chip = executionCancelChipView
             card?.takeIf { !it.isShowing() }?.rootView?.let { view ->
@@ -394,7 +404,23 @@ class FloatingWindowManager(private val service: AccessibilityService) {
 
     suspend fun reattachCancelChipAfterGesture() {
         withContext(Dispatchers.Main.immediate) {
-            if (overlaysSuspended || !isTaskRunning) return@withContext
+            // 只看任务是否在跑（修 Bug A：overlaysSuspended 不再阻挡）
+            if (!isTaskRunning) return@withContext
+            // 同步恢复 card：Bug B 触发的 step 0 期间 card 也是 detached 的，
+            // 如果模型立刻给出非 launch 的手势动作（tap/swipe 等），仅 reattach
+            // chip 会留下"光秃秃右上角芯片，下方无卡片"的不一致画面（Bug E）。
+            executionCardView?.takeIf { !it.isShowing() }?.let { card ->
+                card.rootView?.let { view ->
+                    card.currentLayoutParams?.let { params ->
+                        try {
+                            windowManager.addView(view, params)
+                            card.markShowing(true)
+                        } catch (e: Exception) {
+                            Log.w(TAG, "手势后恢复卡片失败", e)
+                        }
+                    }
+                }
+            }
             val chip = executionCancelChipView ?: return@withContext
             if (chip.isShowing()) return@withContext
             val view = chip.rootView ?: return@withContext
@@ -487,7 +513,15 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                     state.isRunning && state.currentStep > 0 -> {
                         executionCardView?.updateStep(state.currentStep, state.currentAction)
                     }
-                    state.isCompleted && isTaskRunning -> {
+                    state.isCompleted -> {
+                        if (!isTaskRunning) {
+                            // 防御：理论上 Bug A 修复后不会出现 isCompleted=true && isTaskRunning=false
+                            // 但服务重建时 _executionState 可能历史就是 isCompleted=true，
+                            // 兜底 reset 避免状态泄漏到下次任务（Bug C 防御）
+                            Log.w(TAG, "isCompleted 时 isTaskRunning=false，触发兜底 resetState")
+                            ChatViewModel.resetState()
+                            return@collectLatest
+                        }
                         isTaskRunning = false
                         companionWasTaskRunning = false
                         hideExecutionCancelChip()
