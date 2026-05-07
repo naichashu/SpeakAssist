@@ -10,6 +10,7 @@ import com.example.speech.BaiduSpeechConfig
 import com.example.speech.BaiduSpeechManager
 import com.example.speech.WakeWordListeningManager
 import com.example.ui.viewmodel.ChatViewModel
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -429,6 +430,12 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                 val viewModel = ChatViewModel(service.application)
                 val result = viewModel.executeTaskLoop(text, "autoglm-phone")
                 Log.d(TAG, "任务执行完成: ${result.success} - ${result.message}")
+            } catch (e: CancellationException) {
+                // executeTaskLoop 内部 catch 已经走 finishTask 把 _executionState
+                // 更新到 isCompleted=true（含 isCancelled 标志），这里不要再 resetState
+                // 把它打回 default——否则悬浮窗 collectLatest 会同时收到两次状态切换，
+                // showCompletion 动画可能被打断。让 cancel 信号正常透传即可。
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "任务执行失败", e)
                 ChatViewModel.resetState()

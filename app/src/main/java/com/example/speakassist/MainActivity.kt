@@ -43,6 +43,7 @@ import com.example.ui.adapter.ChatMessageAdapter
 import com.example.ui.viewmodel.ChatViewModel
 import com.google.android.material.navigation.NavigationView
 import com.google.android.material.textfield.TextInputEditText
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -438,6 +439,12 @@ class MainActivity : AppCompatActivity() {
                 if (!result.success && result.message.contains("无障碍服务")) {
                     openAccessibilitySettings()
                 }
+            } catch (e: CancellationException) {
+                // lifecycleScope 在 onDestroy 时会取消所有 launch。executeTaskLoop
+                // 内部已经走 finishTask 收尾了状态；这里不要落到下面的 catch (Exception)
+                // 去调 addSystemMessage——Activity 已经在销毁路径上，操作 RecyclerView
+                // 有 NPE/IllegalStateException 风险。
+                throw e
             } catch (e: Exception) {
                 Log.e("MainActivity", "执行任务失败", e)
                 addSystemMessage("执行失败：${e.message}")
