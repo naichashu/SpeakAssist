@@ -145,18 +145,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val client = modelClient ?: return finishTask(sessionId, false, "模型客户端未初始化")
             Log.d(TAG, "执行步骤 $stepCount")
 
-            // 隐藏 overlay 后查询前台 App（此时 rootInActiveWindow 才能拿到真实的 WeChat 等 App）
-            val currentApp = accessibilityService.getForegroundPackageNameWithOverlayHidden()
+            // hide overlay → 读前台包名 → 非自身才截图 → restore overlay。
+            // captureForegroundContext 内部用 try-finally 保证 hide/restore 配对，
+            // 避免旧实现"在 isMyProjectApp 分支跳过 restore"的悬浮窗消失 bug。
             val myProjectApp = getApplication<Application>().packageName
+            val (currentApp, screenShot) = accessibilityService.captureForegroundContext(myProjectApp)
             val isMyProjectApp = currentApp == myProjectApp
             Log.d(TAG, "当前应用: $currentApp $myProjectApp")
-
-            // overlay 已在 getForegroundPackageNameWithOverlayHidden 中隐藏，直接截图
-            val screenShot = if (isMyProjectApp) {
-                null
-            } else {
-                accessibilityService.takeScreenshotAfterForegroundCheck()
-            }
             Log.d(TAG, "获取屏幕截图结果: $screenShot")
 
             if (screenShot == null && !isMyProjectApp) {
