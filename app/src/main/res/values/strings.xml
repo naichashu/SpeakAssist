@@ -91,9 +91,9 @@
     <!-- ApiConfigActivity -->
     <string name="api_config_hint">本应用需要一个 OpenAI 兼容的大模型 API（任务理解）和百度语音识别（命令收音）两组凭据。请在各自控制台创建应用并填入下方。凭据仅保存在本机，不会上传。支持通过右上角菜单导出/导入配置，文件含明文凭据请妥善保管。</string>
     <string name="api_config_llm_section">大模型 API</string>
-    <string name="api_config_llm_desc">填写任意 OpenAI 兼容端点。默认指向智谱 AutoGLM；可改为 MiniMax 官方、OpenRouter、中转站或自部署的 vLLM/LMStudio。</string>
-    <string name="api_config_llm_baseurl_hint">Base URL（如 https://open.bigmodel.cn/api/paas/v4）</string>
-    <string name="api_config_llm_model_hint">模型名（如 autoglm-phone / gpt-4o / claude-sonnet-4-5）</string>
+    <string name="api_config_llm_desc">填写任意 OpenAI 兼容端点。默认指向智谱 AutoGLM；MiniMax 请使用 https://api.minimax.io/v1，模型名如 MiniMax-M2.7。</string>
+    <string name="api_config_llm_baseurl_hint">Base URL（如 https://api.minimax.io/v1）</string>
+    <string name="api_config_llm_model_hint">模型名（如 autoglm-phone / MiniMax-M2.7 / gpt-4o）</string>
     <string name="api_config_llm_apikey_hint">API Key</string>
     <string name="api_config_zhipu_section">智谱 AutoGLM</string>
     <string name="api_config_zhipu_desc">前往 open.bigmodel.cn 控制台创建 API Key，粘贴到下方。</string>

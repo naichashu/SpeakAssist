@@ -41,10 +41,17 @@ class ModelClient(
 ) {
     private val okHttpClient: OkHttpClient
     private val requestBaseUrl: String
+    private val provider: Provider
     private var currentCall: okhttp3.Call? = null
 
     companion object {
         const val TAG = "ModelClient"
+    }
+
+    private enum class Provider {
+        ZHIPU,
+        MINIMAX,
+        OPENAI_COMPATIBLE
     }
 
     init {
@@ -74,7 +81,8 @@ class ModelClient(
             .build()
 
         requestBaseUrl = checkAndFixUrl(baseUrl).removeChatCompletionsSuffix().ensureTrailingSlash()
-        Log.d(TAG, "ModelClient 初始化，baseUrl=$requestBaseUrl")
+        provider = detectProvider(requestBaseUrl)
+        Log.d(TAG, "ModelClient 初始化，baseUrl=$requestBaseUrl, provider=$provider")
     }
 
     /**
@@ -96,6 +104,15 @@ class ModelClient(
             .removeSuffix("chat/completions/")
     }
 
+    private fun detectProvider(baseUrl: String): Provider {
+        val lower = baseUrl.lowercase(Locale.US)
+        return when {
+            "minimax" in lower -> Provider.MINIMAX
+            "bigmodel.cn" in lower -> Provider.ZHIPU
+            else -> Provider.OPENAI_COMPATIBLE
+        }
+    }
+
     /**
      * 发送请求并解析响应。内部用 suspendCancellableCoroutine 包装 OkHttp Call，
      * 这样协程被取消时 HTTP 请求也会被真正中断。
@@ -105,20 +122,18 @@ class ModelClient(
         modelName: String
     ): ModelResponse = suspendCancellableCoroutine { continuation ->
         try {
-            val httpRequest = ChatRequest(
-                model = modelName,
-                messages = messages,
-                maxTokens = 3000,
-                temperature = 0.0,
-                topP = 0.85,
-                frequencyPenalty = 0.2,
-                stream = false
-            )
+            val requestMessages = prepareMessagesForProvider(messages)
+            val httpRequest = buildChatRequest(modelName, requestMessages)
             val jsonBody = Gson().toJson(httpRequest)
             val requestBody: RequestBody = jsonBody.toRequestBody("application/json".toMediaType())
+            val requestUrl = "${requestBaseUrl}chat/completions"
+            Log.d(
+                TAG,
+                "发送模型请求: provider=$provider, url=$requestUrl, model=$modelName, messages=${requestMessages.size}"
+            )
 
             val httpRequestBuilder = Request.Builder()
-                .url("${requestBaseUrl}chat/completions")
+                .url(requestUrl)
                 .header("Authorization", if (apiKey.isBlank() || apiKey == "EMPTY") "Bearer EMPTY" else "Bearer $apiKey")
                 .post(requestBody)
 
@@ -134,6 +149,11 @@ class ModelClient(
                 override fun onResponse(call: Call, response: Response) {
                     try {
                         if (!response.isSuccessful) {
+                            val errorBody = response.peekBody(1200).string()
+                            Log.e(
+                                TAG,
+                                "请求失败详情: code=${response.code}, message=${response.message}, provider=$provider, body=$errorBody"
+                            )
                             Log.e(TAG, "请求失败: ${response.code} ${response.message}")
                             if (continuation.isActive) {
                                 continuation.resumeWithException(
@@ -192,6 +212,57 @@ class ModelClient(
     /**
      * 解析响应内容
      */
+    private fun buildChatRequest(modelName: String, messages: List<ChatMessage>): ChatRequest {
+        return when (provider) {
+            Provider.MINIMAX -> ChatRequest(
+                model = modelName,
+                messages = messages,
+                maxTokens = null,
+                maxCompletionTokens = 2048,
+                temperature = 0.01,
+                topP = 0.85,
+                frequencyPenalty = null,
+                stream = false
+            )
+
+            else -> ChatRequest(
+                model = modelName,
+                messages = messages,
+                maxTokens = 3000,
+                temperature = 0.0,
+                topP = 0.85,
+                frequencyPenalty = 0.2,
+                stream = false
+            )
+        }
+    }
+
+    private fun prepareMessagesForProvider(messages: List<ChatMessage>): List<ChatMessage> {
+        if (provider != Provider.MINIMAX) return messages
+        return messages.map { message ->
+            if (message.role == "user") {
+                ChatMessage(
+                    role = message.role,
+                    content = flattenTextContent(message.content)
+                )
+            } else {
+                message
+            }
+        }
+    }
+
+    private fun flattenTextContent(content: Any): String {
+        return when (content) {
+            is String -> content
+            is List<*> -> content
+                .filterIsInstance<ContentItem>()
+                .mapNotNull { it.text }
+                .joinToString("\n")
+                .trim()
+            else -> content.toString()
+        }
+    }
+
     private fun parseResponse(content: String): ModelResponse {
         Log.d(TAG, "解析前响应内容: ${content.take(500)}")
 
