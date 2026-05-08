@@ -12,6 +12,8 @@ object AppRegister {
 
     private var packageToAppMap: MutableMap<String, String> = mutableMapOf()
 
+    private var packageLaunchableMap: MutableMap<String, Boolean> = mutableMapOf()
+
     /**
      * 别名映射表：把模型常输出的英文 / 拼音 / 品牌名翻成本机标签关键字。
      *
@@ -413,6 +415,7 @@ object AppRegister {
         // 清空旧映射，避免卸载的应用残留、避免重复条目
         appToPackageMap.clear()
         packageToAppMap.clear()
+        packageLaunchableMap.clear()
 
         // 初始化需要的可变映射（满足你的数据结构要求）
         val packageManager: PackageManager = context.packageManager
@@ -431,11 +434,20 @@ object AppRegister {
                 val appName = appInfo.loadLabel(packageManager).toString()
                 // 获取 App 唯一包名（如「com.tencent.mm」）
                 val packageName = appInfo.packageName
+                val isLaunchable = packageManager.getLaunchIntentForPackage(packageName) != null
 
-                // 存入映射（键：应用名称，值：包名）
-                appToPackageMap[appName] = packageName
+                // HarmonyOS may expose atomic-service companion packages with the same label
+                // but no launcher entry, for example com.harmony.meituan. Keep the launchable app.
+                val existingPackageName = appToPackageMap[appName]
+                val existingLaunchable = existingPackageName?.let {
+                    packageLaunchableMap[it] == true
+                } == true
+                if (existingPackageName == null || isLaunchable || !existingLaunchable) {
+                    appToPackageMap[appName] = packageName
+                }
 
                 packageToAppMap[packageName] = appName
+                packageLaunchableMap[packageName] = isLaunchable
             } catch (e: Exception) {
                 // 极少数系统 App 可能获取失败，直接跳过
                 continue

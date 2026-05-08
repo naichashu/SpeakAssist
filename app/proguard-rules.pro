@@ -40,6 +40,12 @@
 -dontwarn org.vosk.**
 -dontwarn org.kaldi.**
 
+# JNA is used by Vosk native bindings and looks up fields/classes by their
+# original names from JNI. Obfuscating it crashes release builds on service start.
+-keep class com.sun.jna.** { *; }
+-keepclassmembers class com.sun.jna.** { *; }
+-dontwarn com.sun.jna.**
+
 # ============== OkHttp / Okio ==============
 -dontwarn okhttp3.**
 -dontwarn okio.**
