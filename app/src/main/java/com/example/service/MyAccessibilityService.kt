@@ -114,32 +114,68 @@ class MyAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * 内部实现：根据 (x, y) 坐标执行点击操作
-     * @param x 屏幕绝对X坐标
-     * @param y 屏幕绝对Y坐标
-     * @return 是否成功点击完成
+     * 内部实现：根据 (x, y) 坐标执行点击操作。
+     * 注意：返回 true 仅表示 dispatchGesture 的 onCompleted 回调成功（手势已派发进
+     * 输入管线），不等价于目标 App 已经响应点击。OEM 反误触 / 第三方 App 二次过滤
+     * 仍可能在下层吞掉事件。详见 docs/适配调整/。
      */
     suspend fun clickByNode(x: Float, y: Float): Boolean {
-        // 构建手势路径
+        val profile = GestureTimingProfile.current
+
         val path = Path()
         path.moveTo(x, y)
 
-        // 构建笔画描述：参数不变，path已正确使用Float坐标
-        val stroke = GestureDescription.StrokeDescription(path, 0, 100)
+        val stroke = GestureDescription.StrokeDescription(path, 0, profile.tapDurationMs)
 
-        // 构建完整手势
         val gesture = GestureDescription.Builder()
             .addStroke(stroke)
             .build()
-        Log.d(TAG, "执行点击：坐标($x, $y)")
+        Log.d(TAG, "执行点击：坐标($x, $y) duration=${profile.tapDurationMs}ms profile=${profile.name}")
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             Log.e(TAG, "系统版本不支持dispatchGesture")
             return false
         }
+
+        val preWindowId = currentWindowIdSnapshot()
         val result = dispatchGestureAwaiting(gesture)
-        Log.d(TAG, "点击手势${if (result) "完成" else "失败"}")
+        Log.d(TAG, "点击手势${if (result) "已派发" else "派发失败"}")
+
+        if (result) {
+            val postWindowId = currentWindowIdSnapshot()
+            if (preWindowId != null && preWindowId == postWindowId) {
+                Log.w(
+                    TAG,
+                    "suspected_invalid_tap: windowId unchanged ($preWindowId) " +
+                            "at($x,$y) profile=${profile.name} tap=${profile.tapDurationMs}ms",
+                )
+            }
+        }
         return result
+    }
+
+    /**
+     * 取一次当前活动窗口的 windowId 快照，用于点击前后比对（失效点击采样）。
+     * 注意：windowId 不变只是「可能无效」的弱信号——同窗口内点击 toggle / 列表项
+     * 也不会改 windowId。后续可加多信号融合（focused node / contentChange / 像素差）。
+     */
+    private fun currentWindowIdSnapshot(): Int? {
+        val root = rootInActiveWindow ?: return null
+        return try {
+            root.windowId
+        } finally {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                try {
+                    root.javaClass.getMethod("close").invoke(root)
+                } catch (e: Exception) {
+                    @Suppress("DEPRECATION")
+                    root.recycle()
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                root.recycle()
+            }
+        }
     }
 
     /**
@@ -170,7 +206,7 @@ class MyAccessibilityService : AccessibilityService() {
         Log.d(TAG, "执行长按：坐标($x, $y)，持续时间${longPressDuration}ms")
 
         val result = dispatchGestureAwaiting(gesture)
-        Log.d(TAG, "长按手势${if (result) "完成" else "失败"}")
+        Log.d(TAG, "长按手势${if (result) "已派发" else "派发失败"}")
         return result
     }
 
@@ -186,26 +222,33 @@ class MyAccessibilityService : AccessibilityService() {
             return false
         }
 
+        val profile = GestureTimingProfile.current
+
         // 双击需要两个快速连续的点击
         val path = Path()
         path.moveTo(x, y)
 
-        // 第一次点击：立即开始，持续100ms
-        val firstClick = GestureDescription.StrokeDescription(path, 0, 100)
+        val firstClick = GestureDescription.StrokeDescription(path, 0, profile.doubleTapFirstDurationMs)
+        val secondClick = GestureDescription.StrokeDescription(
+            path,
+            profile.doubleTapStartGapMs,
+            profile.doubleTapSecondDurationMs,
+        )
 
-        // 第二次点击：延迟200ms后开始，持续100ms（双击间隔，部分应用需要更长间隔）
-        val secondClick = GestureDescription.StrokeDescription(path, 300, 100)
-
-        // 构建完整手势，包含两个笔画
         val gesture = GestureDescription.Builder()
             .addStroke(firstClick)
             .addStroke(secondClick)
             .build()
 
-        Log.d(TAG, "执行双击：坐标($x, $y)，间隔300ms")
+        Log.d(
+            TAG,
+            "执行双击：坐标($x, $y) first=${profile.doubleTapFirstDurationMs}ms " +
+                    "gap=${profile.doubleTapStartGapMs}ms second=${profile.doubleTapSecondDurationMs}ms " +
+                    "profile=${profile.name}",
+        )
 
         val result = dispatchGestureAwaiting(gesture)
-        Log.d(TAG, "双击手势${if (result) "完成" else "失败"}")
+        Log.d(TAG, "双击手势${if (result) "已派发" else "派发失败"}")
         return result
     }
 
@@ -240,7 +283,7 @@ class MyAccessibilityService : AccessibilityService() {
         Log.d(TAG, "执行滑动：从($startX, $startY)到($endX, $endY)，持续${swipeDuration}ms")
 
         val result = dispatchGestureAwaiting(gesture)
-        Log.d(TAG, "滑动手势${if (result) "完成" else "失败"}")
+        Log.d(TAG, "滑动手势${if (result) "已派发" else "派发失败"}")
         return result
     }
 

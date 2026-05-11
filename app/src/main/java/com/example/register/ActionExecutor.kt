@@ -461,52 +461,66 @@ class ActionExecutor(private val service: MyAccessibilityService) {
     private suspend fun tap(actionObj: JsonObject, screenWidth: Int, screenHeight: Int): ActionResult {
         val element = actionObj.get("element")
         Log.d(TAG, "点击事件位置: $element, 屏幕尺寸: ${screenWidth}x${screenHeight}")
-        if (element.isJsonArray) {
-            val arr = element.asJsonArray
-            if (arr.size() == 2) {
-                val (x, y) = relativeToAbsolute(
-                    listOf(arr[0].asFloat, arr[1].asFloat),
-                    screenWidth,
-                    screenHeight
-                )
-                Log.d(TAG, "相对坐标[${arr[0]}, ${arr[1]}] -> 绝对坐标($x, $y)")
-                val success = service.clickByNode(x, y)
-                return if (success) {
-                    ActionResult(
-                        success = true,
-                        message = "点击成功：坐标($x, $y)",
-                        actionDetail = ActionDetail(
-                            type = "tap",
-                            x1 = x,
-                            y1 = y,
-                            waitMs = TAP_SETTLE_DELAY_MS
-                        )
-                    )
-                } else {
-                    ActionResult(
-                        success = false,
-                        message = "点击手势提交失败：坐标($x, $y)",
-                        actionDetail = ActionDetail(
-                            type = "tap",
-                            x1 = x,
-                            y1 = y
-                        )
-                    )
-                }
-            } else {
-                Log.e(TAG, "参数错误：数组长度为${arr.size()}")
-                return ActionResult(
-                    success = false,
-                    message = "参数错误：element字段需为「千分比相对坐标数组」，标准格式为 [x, y]，" +
-                            "数组长度必须为2（x=屏幕宽度占比0-1000，y=屏幕高度占比0-1000）"
-                )
-            }
-        } else {
+
+        if (element == null || !element.isJsonArray) {
             Log.e(TAG, "参数错误：element不是数组，类型为${element?.javaClass?.simpleName}")
             return ActionResult(
                 success = false,
                 message = "参数错误：element字段类型非法，需为JSON数组格式 [x, y]" +
                         "（x=屏幕宽度千分比0-1000，y=屏幕高度千分比0-1000）"
+            )
+        }
+
+        val arr = element.asJsonArray
+        if (arr.size() != 2) {
+            Log.e(TAG, "参数错误：数组长度为${arr.size()}")
+            return ActionResult(
+                success = false,
+                message = "参数错误：element字段需为「千分比相对坐标数组」，标准格式为 [x, y]，" +
+                        "数组长度必须为2（x=屏幕宽度占比0-1000，y=屏幕高度占比0-1000）"
+            )
+        }
+
+        val relX = arr[0].asFloat
+        val relY = arr[1].asFloat
+        if (relX < 0 || relX > 1000 || relY < 0 || relY > 1000) {
+            return ActionResult(
+                success = false,
+                message = "坐标超出范围：x和y应在0-1000之间"
+            )
+        }
+
+        val (x, y) = relativeToAbsolute(listOf(relX, relY), screenWidth, screenHeight)
+        Log.d(TAG, "相对坐标[$relX, $relY] -> 绝对坐标($x, $y)")
+
+        if (x < 0 || x > screenWidth || y < 0 || y > screenHeight) {
+            return ActionResult(
+                success = false,
+                message = "坐标超出屏幕范围：屏幕尺寸为 ${screenWidth}x$screenHeight"
+            )
+        }
+
+        val success = service.clickByNode(x, y)
+        return if (success) {
+            ActionResult(
+                success = true,
+                message = "点击手势已派发：坐标($x, $y)",
+                actionDetail = ActionDetail(
+                    type = "tap",
+                    x1 = x,
+                    y1 = y,
+                    waitMs = TAP_SETTLE_DELAY_MS
+                )
+            )
+        } else {
+            ActionResult(
+                success = false,
+                message = "点击手势提交失败：坐标($x, $y)",
+                actionDetail = ActionDetail(
+                    type = "tap",
+                    x1 = x,
+                    y1 = y
+                )
             )
         }
     }
