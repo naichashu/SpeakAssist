@@ -4,9 +4,11 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Bitmap
 import android.graphics.Path
+import android.graphics.Rect
 import android.os.Build
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import com.example.floating.FloatingWindowManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -150,8 +152,22 @@ class MyAccessibilityService : AccessibilityService() {
                             "at($x,$y) profile=${profile.name} tap=${profile.tapDurationMs}ms",
                 )
             }
+            return true
         }
-        return result
+
+        // dispatchGesture 派发失败：仅 strict 档（华为/荣耀等已知故障机型）启用
+        // ACTION_CLICK 兜底。default/balanced 档此分支直接返回 false，行为完全等价
+        // 于改动前。
+        if (profile.enableActionClickFallback) {
+            val fallbackResult = tryClickByNode(x, y)
+            Log.i(
+                TAG,
+                "ACTION_CLICK 兜底${if (fallbackResult) "成功" else "失败"}：坐标($x, $y) " +
+                        "profile=${profile.name}",
+            )
+            return fallbackResult
+        }
+        return false
     }
 
     /**
@@ -164,17 +180,93 @@ class MyAccessibilityService : AccessibilityService() {
         return try {
             root.windowId
         } finally {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                try {
-                    root.javaClass.getMethod("close").invoke(root)
-                } catch (e: Exception) {
-                    @Suppress("DEPRECATION")
-                    root.recycle()
+            closeNode(root)
+        }
+    }
+
+    /**
+     * 在 (x, y) 坐标处查找最深的可点击节点，并对它执行 ACTION_CLICK。
+     *
+     * 仅由 clickByNode 在 dispatchGesture 失败时调用，且仅当当前
+     * `GestureTimingProfile.enableActionClickFallback` 打开（即 strict 档：华为/荣耀）
+     * 才会触发。default/balanced 档不会进入此分支，对正常机型零影响。
+     *
+     * 算法：栈式 DFS 遍历窗口树，找包含 (x, y) 坐标且 `isClickable + visibleToUser`
+     * 的节点中**面积最小**的（即最深的可点击控件）。例如点击列表项中的按钮，会优先
+     * 匹配按钮而不是外层的列表项。
+     *
+     * 节点内存管理：root 由本方法 finally 释放；匹配节点由本方法在 performAction
+     * 后立即关闭；栈中其他节点出栈后立即关闭。
+     */
+    private fun tryClickByNode(x: Float, y: Float): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val target = findClickableNodeAt(root, x.toInt(), y.toInt())
+        return try {
+            target?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
+        } finally {
+            if (target != null && target !== root) closeNode(target)
+            closeNode(root)
+        }
+    }
+
+    /**
+     * 栈式 DFS 找 (x, y) 处面积最小的可点击节点。
+     * root 不释放（caller 负责）；返回值由 caller 释放；遍历过程中的其他节点立即释放。
+     */
+    private fun findClickableNodeAt(root: AccessibilityNodeInfo, x: Int, y: Int): AccessibilityNodeInfo? {
+        val stack = ArrayDeque<AccessibilityNodeInfo>()
+        stack.add(root)
+        val bounds = Rect()
+        var bestMatch: AccessibilityNodeInfo? = null
+        var bestArea = Int.MAX_VALUE
+
+        try {
+            while (stack.isNotEmpty()) {
+                val current = stack.removeLast()
+                current.getBoundsInScreen(bounds)
+
+                if (!bounds.contains(x, y)) {
+                    if (current !== root) closeNode(current)
+                    continue
                 }
-            } else {
-                @Suppress("DEPRECATION")
-                root.recycle()
+
+                for (i in 0 until current.childCount) {
+                    current.getChild(i)?.let { stack.add(it) }
+                }
+
+                val area = bounds.width() * bounds.height()
+                if (current.isClickable && current.isVisibleToUser && area in 1 until bestArea) {
+                    bestMatch?.let { if (it !== root) closeNode(it) }
+                    bestMatch = current
+                    bestArea = area
+                } else if (current !== root && current !== bestMatch) {
+                    closeNode(current)
+                }
             }
+        } finally {
+            while (stack.isNotEmpty()) {
+                val node = stack.removeLast()
+                if (node !== root && node !== bestMatch) closeNode(node)
+            }
+        }
+        return bestMatch
+    }
+
+    /**
+     * 关闭 AccessibilityNodeInfo。API 33+ 使用反射调用 close()（NodeInfo 实现了
+     * Closeable，但跨 SDK 编译需反射），旧版本降级到 recycle()。
+     */
+    private fun closeNode(node: AccessibilityNodeInfo) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            try {
+                AccessibilityNodeInfo::class.java.getMethod("close").invoke(node)
+            } catch (e: Exception) {
+                @Suppress("DEPRECATION")
+                node.recycle()
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            node.recycle()
         }
     }
 

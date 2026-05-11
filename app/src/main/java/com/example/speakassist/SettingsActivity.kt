@@ -18,6 +18,7 @@ import com.example.input.ImeActivationStatus
 import com.example.input.TextInputMode
 import com.example.service.MyAccessibilityService
 import com.example.service.MyInputMethodService
+import com.example.service.GestureTimingProfile
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.switchmaterial.SwitchMaterial
 import kotlinx.coroutines.flow.first
@@ -38,6 +39,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var tvAudioStatus: TextView
     private lateinit var tvOverlayStatus: TextView
     private lateinit var tvTextInputModeValue: TextView
+    private lateinit var tvGestureProfileValue: TextView
     private lateinit var switchFloatingWindow: SwitchMaterial
     private lateinit var switchVoiceWake: SwitchMaterial
     private var pendingImeModeActivation = false
@@ -53,6 +55,7 @@ class SettingsActivity : AppCompatActivity() {
         initPermissionViews()
         setupClickListeners()
         setupTextInputModeRow()
+        setupGestureProfileRow()
         setupFloatingWindowSwitch()
         setupVoiceWakeSwitch()
     }
@@ -81,6 +84,7 @@ class SettingsActivity : AppCompatActivity() {
         tvAudioStatus = findViewById(R.id.tvAudioStatus)
         tvOverlayStatus = findViewById(R.id.tvOverlayStatus)
         tvTextInputModeValue = findViewById(R.id.tvTextInputModeValue)
+        tvGestureProfileValue = findViewById(R.id.tvGestureProfileValue)
         switchFloatingWindow = findViewById(R.id.switchFloatingWindow)
         switchVoiceWake = findViewById(R.id.switchVoiceWake)
     }
@@ -158,6 +162,12 @@ class SettingsActivity : AppCompatActivity() {
             val mode = resolveEffectiveTextInputMode()
             tvTextInputModeValue.text = textInputModeLabel(mode)
         }
+    }
+
+    private fun setupGestureProfileRow() {
+        val profile = GestureTimingProfile.current
+        val fallbackSuffix = if (profile.enableActionClickFallback) " · 含兜底" else ""
+        tvGestureProfileValue.text = "${profile.name} ${profile.tapDurationMs}ms$fallbackSuffix"
     }
 
     private fun showTextInputModeDialog() {

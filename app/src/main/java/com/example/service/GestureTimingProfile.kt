@@ -41,6 +41,14 @@ data class GestureTimingProfile(
     val doubleTapFirstDurationMs: Long,
     val doubleTapSecondDurationMs: Long,
     val doubleTapStartGapMs: Long,
+    /**
+     * 是否在 dispatchGesture 失败时启用 `AccessibilityNodeInfo.ACTION_CLICK` 兜底。
+     *
+     * 仅 strict（已知故障机型）打开。default / balanced 关闭——它们
+     * dispatchGesture 不失败，不需要兜底；关闭后兜底分支的代码路径完全不会执行，
+     * 对正常机型零风险。
+     */
+    val enableActionClickFallback: Boolean,
 ) {
     companion object {
         private const val TAG = "GestureTimingProfile"
@@ -51,6 +59,7 @@ data class GestureTimingProfile(
             doubleTapFirstDurationMs = 180,
             doubleTapSecondDurationMs = 180,
             doubleTapStartGapMs = 350,
+            enableActionClickFallback = false,
         )
 
         val BALANCED = GestureTimingProfile(
@@ -59,6 +68,7 @@ data class GestureTimingProfile(
             doubleTapFirstDurationMs = 200,
             doubleTapSecondDurationMs = 200,
             doubleTapStartGapMs = 360,
+            enableActionClickFallback = false,
         )
 
         val STRICT = GestureTimingProfile(
@@ -67,6 +77,7 @@ data class GestureTimingProfile(
             doubleTapFirstDurationMs = 220,
             doubleTapSecondDurationMs = 220,
             doubleTapStartGapMs = 380,
+            enableActionClickFallback = true,
         )
 
         private val STRICT_KEYWORDS = listOf("huawei", "honor")
