@@ -513,9 +513,20 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                 )
             )
         } else {
+            // 失败时附带容器线索：WebView / H5 页面内的手势注入常被 OEM 过滤层
+            // 吞掉、且节点树几乎为空，反复 tap 没有意义。把这条提示喂给模型，
+            // 引导其改用 swipe 或 finish 交还用户。
+            val containerHint = service.foregroundContainerHint()
+            val message = buildString {
+                append("点击手势提交失败：坐标($x, $y)")
+                if (containerHint == "WebView") {
+                    append("。当前页面包含 WebView（小程序 / H5 容器），模拟点击常常失效，")
+                    append("建议改用 swipe 翻页、或 finish 让用户接管。")
+                }
+            }
             ActionResult(
                 success = false,
-                message = "点击手势提交失败：坐标($x, $y)",
+                message = message,
                 actionDetail = ActionDetail(
                     type = "tap",
                     x1 = x,

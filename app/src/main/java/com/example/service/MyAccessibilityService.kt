@@ -171,6 +171,55 @@ class MyAccessibilityService : AccessibilityService() {
     }
 
     /**
+     * 判断当前前台页面是否在 WebView / H5 容器内。
+     * 仅在 ActionExecutor 检测到点击失败后调用，结果作为错误消息的附加提示
+     * 给模型，引导其不要在 H5 页面里反复重试 tap。
+     *
+     * 实现：root 起 DFS，深度 ≤4 层、累计访问节点 ≤200 个。WebView 通常包在
+     * FrameLayout / DecorView 1-3 层内，深层级出现 WebView 几率低、不值得继续遍。
+     * 节点内存：root 在本方法 finally 释放；遍历中其他节点出栈即关。
+     */
+    fun foregroundContainerHint(): String? {
+        val root = rootInActiveWindow ?: return null
+        return try {
+            if (containsWebView(root, maxDepth = 4)) "WebView" else null
+        } finally {
+            closeNode(root)
+        }
+    }
+
+    private fun containsWebView(
+        root: AccessibilityNodeInfo,
+        maxDepth: Int,
+        maxNodes: Int = 200,
+    ): Boolean {
+        val stack = ArrayDeque<Pair<AccessibilityNodeInfo, Int>>()
+        stack.add(root to 0)
+        var found = false
+        var visited = 0
+        try {
+            while (stack.isNotEmpty() && visited < maxNodes && !found) {
+                val (node, depth) = stack.removeLast()
+                visited++
+                if (node.className?.contains("WebView", ignoreCase = true) == true) {
+                    found = true
+                } else if (depth < maxDepth) {
+                    for (i in 0 until node.childCount) {
+                        node.getChild(i)?.let { stack.add(it to depth + 1) }
+                    }
+                }
+                if (node !== root) closeNode(node)
+            }
+        } finally {
+            while (stack.isNotEmpty()) {
+                val (node, _) = stack.removeLast()
+                if (node !== root) closeNode(node)
+            }
+        }
+        return found
+    }
+
+    /**
      * 取一次当前活动窗口的 windowId 快照，用于点击前后比对（失效点击采样）。
      * 注意：windowId 不变只是「可能无效」的弱信号——同窗口内点击 toggle / 列表项
      * 也不会改 windowId。后续可加多信号融合（focused node / contentChange / 像素差）。
