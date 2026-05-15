@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.resume
 
 /**
@@ -45,6 +47,7 @@ class MyAccessibilityService : AccessibilityService() {
 
     private val _currentApp = MutableStateFlow<String?>(null)
     val currentApp: StateFlow<String?> = _currentApp.asStateFlow()
+    private val interactionEventSeqByPackage = ConcurrentHashMap<String, AtomicLong>()
 
     /**
      * 直接查询前台 App 包名，不依赖 TYPE_WINDOW_STATE_CHANGED 事件。
@@ -97,6 +100,14 @@ class MyAccessibilityService : AccessibilityService() {
             if (it.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
                 _currentApp.value = it.packageName?.toString()
             }
+            if (isInteractionFeedbackEvent(it.eventType)) {
+                val packageName = it.packageName?.toString()
+                if (!packageName.isNullOrBlank()) {
+                    interactionEventSeqByPackage
+                        .getOrPut(packageName) { AtomicLong(0) }
+                        .incrementAndGet()
+                }
+            }
         }
     }
 
@@ -127,6 +138,18 @@ class MyAccessibilityService : AccessibilityService() {
     suspend fun clickByNode(x: Float, y: Float): Boolean {
         val profile = GestureTimingProfile.current
 
+        // strict 档（华为/荣耀）：dispatchGesture 派发虽成功但 App 不响应，
+        // ACTION_CLICK 直接触发节点反而有效。改为优先尝试。
+        if (profile.useActionClickAsPrimary) {
+            Log.d(TAG, "尝试 ACTION_CLICK 主路径：坐标($x, $y) profile=${profile.name}")
+            val actionClickResult = performActionClick(x, y)
+            if (actionClickResult) {
+                Log.i(TAG, "ACTION_CLICK 主路径成功：坐标($x, $y)")
+                return true
+            }
+            Log.w(TAG, "ACTION_CLICK 主路径失败，降级 dispatchGesture：坐标($x, $y)")
+        }
+
         val path = Path()
         path.moveTo(x, y)
 
@@ -142,17 +165,40 @@ class MyAccessibilityService : AccessibilityService() {
             return false
         }
 
-        val preWindowId = currentWindowIdSnapshot()
+        val preSnapshot = currentWindowSnapshot()
+        val preWindowId = preSnapshot?.windowId
+        val targetPackage = preSnapshot?.packageName
+        val preInteractionSeq = targetPackage?.let { packageInteractionSeq(it) }
         val result = dispatchGestureAwaiting(gesture)
         Log.d(TAG, "点击手势${if (result) "已派发" else "派发失败"}")
 
         if (result) {
-            val postWindowId = currentWindowIdSnapshot()
-            if (preWindowId != null && preWindowId == postWindowId) {
+            delay(350)
+            val postWindowId = currentWindowSnapshot()?.windowId
+            val hasInteractionFeedback = targetPackage != null &&
+                    preInteractionSeq != null &&
+                    packageInteractionSeq(targetPackage) > preInteractionSeq
+            if (preWindowId != null && preWindowId != postWindowId) {
+                Log.d(
+                    TAG,
+                    "tap_window_changed: $preWindowId -> $postWindowId at($x,$y) " +
+                            "package=$targetPackage profile=${profile.name}",
+                )
+            } else if (preWindowId != null && preWindowId == postWindowId && !hasInteractionFeedback) {
                 Log.w(
                     TAG,
-                    "suspected_invalid_tap: windowId unchanged ($preWindowId) " +
-                            "at($x,$y) profile=${profile.name} tap=${profile.tapDurationMs}ms",
+                    "invalid_tap_confirmed: windowId unchanged ($preWindowId), no accessibility feedback " +
+                            "package=$targetPackage at($x,$y) profile=${profile.name} " +
+                            "tap=${profile.tapDurationMs}ms useActionClickAsPrimary=${profile.useActionClickAsPrimary}",
+                )
+                if (profile.useActionClickAsPrimary) {
+                    return false
+                }
+            } else if (preWindowId != null && preWindowId == postWindowId) {
+                Log.d(
+                    TAG,
+                    "tap_feedback_observed: windowId unchanged ($preWindowId), " +
+                            "accessibility feedback observed at($x,$y) package=$targetPackage",
                 )
             }
             return true
@@ -162,7 +208,7 @@ class MyAccessibilityService : AccessibilityService() {
         // ACTION_CLICK 兜底。default/balanced 档此分支直接返回 false，行为完全等价
         // 于改动前。
         if (profile.enableActionClickFallback) {
-            val fallbackResult = tryClickByNode(x, y)
+            val fallbackResult = performActionClick(x, y)
             Log.i(
                 TAG,
                 "ACTION_CLICK 兜底${if (fallbackResult) "成功" else "失败"}：坐标($x, $y) " +
@@ -171,6 +217,51 @@ class MyAccessibilityService : AccessibilityService() {
             return fallbackResult
         }
         return false
+    }
+
+    private fun isInteractionFeedbackEvent(eventType: Int): Boolean {
+        return eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
+                eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
+                eventType == AccessibilityEvent.TYPE_VIEW_CLICKED ||
+                eventType == AccessibilityEvent.TYPE_VIEW_FOCUSED ||
+                eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED ||
+                eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED
+    }
+
+    private fun packageInteractionSeq(packageName: String): Long {
+        return interactionEventSeqByPackage[packageName]?.get() ?: 0L
+    }
+
+    private fun performActionClick(x: Float, y: Float): Boolean {
+        val root = rootInActiveWindow ?: run {
+            Log.w(TAG, "ACTION_CLICK 路径无可用窗口：rootInActiveWindow=null at($x,$y)")
+            return false
+        }
+        val target = findClickableNodeAt(root, x.toInt(), y.toInt())
+        if (target == null) {
+            Log.w(
+                TAG,
+                "ACTION_CLICK 未找到可点击节点 at($x,$y) " +
+                        "rootPackage=${root.packageName} childCount=${root.childCount}",
+            )
+            closeNode(root)
+            return false
+        }
+        val bounds = Rect().also { target.getBoundsInScreen(it) }
+        val nodeDesc = "class=${target.className} bounds=$bounds " +
+                "clickable=${target.isClickable} enabled=${target.isEnabled}"
+        return try {
+            val performed = target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            if (performed) {
+                Log.i(TAG, "ACTION_CLICK 节点响应成功 at($x,$y) $nodeDesc")
+            } else {
+                Log.w(TAG, "ACTION_CLICK 节点 performAction 返回 false at($x,$y) $nodeDesc")
+            }
+            performed
+        } finally {
+            if (target !== root) closeNode(target)
+            closeNode(root)
+        }
     }
 
     /**
@@ -222,26 +313,24 @@ class MyAccessibilityService : AccessibilityService() {
         return found
     }
 
-    /**
-     * 取一次当前活动窗口的 windowId 快照，用于点击前后比对（失效点击采样）。
-     * 注意：windowId 不变只是「可能无效」的弱信号——同窗口内点击 toggle / 列表项
-     * 也不会改 windowId。后续可加多信号融合（focused node / contentChange / 像素差）。
-     */
-    private fun currentWindowIdSnapshot(): Int? {
+    private data class WindowSnapshot(
+        val windowId: Int,
+        val packageName: String?,
+    )
+
+    private fun currentWindowSnapshot(): WindowSnapshot? {
         val root = rootInActiveWindow ?: return null
         return try {
-            root.windowId
+            WindowSnapshot(root.windowId, root.packageName?.toString())
         } finally {
             closeNode(root)
         }
     }
 
     /**
-     * 在 (x, y) 坐标处查找最深的可点击节点，并对它执行 ACTION_CLICK。
+     * 在 (x, y) 坐标处查找最深的可点击节点。
      *
-     * 仅由 clickByNode 在 dispatchGesture 失败时调用，且仅当当前
-     * `GestureTimingProfile.enableActionClickFallback` 打开（即 strict 档：华为/荣耀）
-     * 才会触发。default/balanced 档不会进入此分支，对正常机型零影响。
+     * 由 clickByNode 在 strict 档主路径或 dispatchGesture 失败兜底分支调用。
      *
      * 算法：栈式 DFS 遍历窗口树，找包含 (x, y) 坐标且 `isClickable + visibleToUser`
      * 的节点中**面积最小**的（即最深的可点击控件）。例如点击列表项中的按钮，会优先
@@ -249,21 +338,6 @@ class MyAccessibilityService : AccessibilityService() {
      *
      * 节点内存管理：root 由本方法 finally 释放；匹配节点由本方法在 performAction
      * 后立即关闭；栈中其他节点出栈后立即关闭。
-     */
-    private fun tryClickByNode(x: Float, y: Float): Boolean {
-        val root = rootInActiveWindow ?: return false
-        val target = findClickableNodeAt(root, x.toInt(), y.toInt())
-        return try {
-            target?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
-        } finally {
-            if (target != null && target !== root) closeNode(target)
-            closeNode(root)
-        }
-    }
-
-    /**
-     * 栈式 DFS 找 (x, y) 处面积最小的可点击节点。
-     * root 不释放（caller 负责）；返回值由 caller 释放；遍历过程中的其他节点立即释放。
      */
     private fun findClickableNodeAt(root: AccessibilityNodeInfo, x: Int, y: Int): AccessibilityNodeInfo? {
         val stack = ArrayDeque<AccessibilityNodeInfo>()

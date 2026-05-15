@@ -364,7 +364,11 @@ class ActionExecutor(private val service: MyAccessibilityService) {
             }
 
             "do" -> {
-                val action = actionObj.get("action")?.asString ?: ""
+                val rawAction = actionObj.get("action")?.asString ?: ""
+                val action = rawAction.trim().trim('"', '\'')
+                if (rawAction != action) {
+                    Log.w(TAG, "action 字段含多余引号已清洗: '$rawAction' -> '$action'")
+                }
                 executeAction(action, actionObj, screenWidth, screenHeight)
             }
 
@@ -517,6 +521,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
             // 吞掉、且节点树几乎为空，反复 tap 没有意义。把这条提示喂给模型，
             // 引导其改用 swipe 或 finish 交还用户。
             val containerHint = service.foregroundContainerHint()
+            Log.w(TAG, "tap 失败已上报模型：坐标($x, $y) containerHint=$containerHint")
             val message = buildString {
                 append("点击手势提交失败：坐标($x, $y)")
                 if (containerHint == "WebView") {

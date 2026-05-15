@@ -49,6 +49,16 @@ data class GestureTimingProfile(
      * 对正常机型零风险。
      */
     val enableActionClickFallback: Boolean,
+    /**
+     * 是否将 ACTION_CLICK 作为主要点击方式（dispatchGesture 之前尝试）。
+     * 仅 strict 档（华为/荣耀）开启。这些机型的 dispatchGesture 虽然在系统层返回
+     * 成功（onCompleted），但目标 App 的 UI 实际不响应（windowId 不变），
+     * ACTION_CLICK 永远到不了兜底分支。
+     *
+     * 开启后：先 try ACTION_CLICK，失败再试 dispatchGesture。
+     * 其他档位保持原逻辑不变（dispatchGesture 为主）。
+     */
+    val useActionClickAsPrimary: Boolean,
 ) {
     companion object {
         private const val TAG = "GestureTimingProfile"
@@ -60,6 +70,7 @@ data class GestureTimingProfile(
             doubleTapSecondDurationMs = 180,
             doubleTapStartGapMs = 350,
             enableActionClickFallback = false,
+            useActionClickAsPrimary = false,
         )
 
         val BALANCED = GestureTimingProfile(
@@ -69,6 +80,7 @@ data class GestureTimingProfile(
             doubleTapSecondDurationMs = 200,
             doubleTapStartGapMs = 360,
             enableActionClickFallback = false,
+            useActionClickAsPrimary = false,
         )
 
         val STRICT = GestureTimingProfile(
@@ -78,6 +90,7 @@ data class GestureTimingProfile(
             doubleTapSecondDurationMs = 220,
             doubleTapStartGapMs = 380,
             enableActionClickFallback = true,
+            useActionClickAsPrimary = true,
         )
 
         private val STRICT_KEYWORDS = listOf("huawei", "honor")
