@@ -1,6 +1,7 @@
 package com.example.speakassist
 
 import android.Manifest
+import android.util.Log
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -16,6 +17,8 @@ import com.example.data.SettingsPrefs
 import com.example.input.ImeActivationHelper
 import com.example.input.ImeActivationStatus
 import com.example.input.TextInputMode
+import com.example.diagnostics.DiagnosticsUploader
+import com.example.diagnostics.LogcatTee
 import com.example.service.MyAccessibilityService
 import com.example.service.MyInputMethodService
 import com.example.service.GestureTimingProfile
@@ -42,6 +45,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var tvGestureProfileValue: TextView
     private lateinit var switchFloatingWindow: SwitchMaterial
     private lateinit var switchVoiceWake: SwitchMaterial
+    private lateinit var switchDiagnostics: SwitchMaterial
     private var pendingImeModeActivation = false
     private var pendingImeModeDeactivation = false
     private var suppressSwitchCallbacks = false
@@ -58,6 +62,7 @@ class SettingsActivity : AppCompatActivity() {
         setupGestureProfileRow()
         setupFloatingWindowSwitch()
         setupVoiceWakeSwitch()
+        setupDiagnosticsSwitch()
     }
 
     private fun onImeStateChanged() {
@@ -87,6 +92,7 @@ class SettingsActivity : AppCompatActivity() {
         tvGestureProfileValue = findViewById(R.id.tvGestureProfileValue)
         switchFloatingWindow = findViewById(R.id.switchFloatingWindow)
         switchVoiceWake = findViewById(R.id.switchVoiceWake)
+        switchDiagnostics = findViewById(R.id.switchDiagnostics)
     }
 
     private fun showToast(message: CharSequence, duration: Int = Toast.LENGTH_SHORT) {
@@ -154,6 +160,24 @@ class SettingsActivity : AppCompatActivity() {
 
         findViewById<android.view.View>(R.id.itemAbout).setOnClickListener {
             startActivity(Intent(this, AboutActivity::class.java))
+        }
+
+        findViewById<android.view.View>(R.id.itemUploadDiag).setOnClickListener {
+            lifecycleScope.launch {
+                val enabled = SettingsPrefs.diagnosticsUploadEnabled(this@SettingsActivity).first()
+                if (!enabled) {
+                    showToast(getString(R.string.diagnostics_disabled_hint), Toast.LENGTH_LONG)
+                    return@launch
+                }
+                LogcatTee.flush()
+                val logFile = LogcatTee.getCurrentLogFile()
+                if (logFile == null || !logFile.exists()) {
+                    showToast("当前无日志文件", Toast.LENGTH_SHORT)
+                    return@launch
+                }
+                DiagnosticsUploader.enqueue(this@SettingsActivity, logFile, "manual")
+                showToast("已加入上传队列", Toast.LENGTH_SHORT)
+            }
         }
     }
 
@@ -342,6 +366,48 @@ class SettingsActivity : AppCompatActivity() {
             }
             lifecycleScope.launch {
                 SettingsPrefs.setVoiceWakeEnabled(this@SettingsActivity, isChecked)
+            }
+        }
+    }
+
+    private fun setupDiagnosticsSwitch() {
+        lifecycleScope.launch {
+            val enabled = SettingsPrefs.diagnosticsUploadEnabled(this@SettingsActivity).first()
+            suppressSwitchCallbacks = true
+            switchDiagnostics.isChecked = enabled
+            suppressSwitchCallbacks = false
+        }
+
+        switchDiagnostics.setOnCheckedChangeListener { _, isChecked ->
+            if (suppressSwitchCallbacks) return@setOnCheckedChangeListener
+
+            if (isChecked) {
+                MaterialAlertDialogBuilder(this)
+                    .setTitle(R.string.diagnostics_privacy_title)
+                    .setMessage(R.string.diagnostics_privacy_message)
+                    .setPositiveButton("开启") { _, _ ->
+                        lifecycleScope.launch {
+                            SettingsPrefs.setDiagnosticsUploadEnabled(this@SettingsActivity, true)
+                            switchDiagnostics.isChecked = true
+                            DiagnosticsUploader.init(this@SettingsActivity)
+                            LogcatTee.start(this@SettingsActivity)
+                        }
+                    }
+                    .setNegativeButton(R.string.cancel) { _, _ ->
+                        suppressSwitchCallbacks = true
+                        switchDiagnostics.isChecked = false
+                        suppressSwitchCallbacks = false
+                    }
+                    .setOnDismissListener {
+                        suppressSwitchCallbacks = false
+                    }
+                    .show()
+            } else {
+                lifecycleScope.launch {
+                    SettingsPrefs.setDiagnosticsUploadEnabled(this@SettingsActivity, false)
+                    LogcatTee.stop()
+                    DiagnosticsUploader.shutdown()
+                }
             }
         }
     }

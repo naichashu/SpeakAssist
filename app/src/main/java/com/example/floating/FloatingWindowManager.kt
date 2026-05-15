@@ -112,7 +112,41 @@ class FloatingWindowManager(private val service: AccessibilityService) {
             }
         })
 
-        initWakeWordManager()
+        scope.launch(Dispatchers.IO) {
+            val manager = WakeWordListeningManager(service)
+            val ok = manager.init()
+            handler.post {
+                if (ok) {
+                    wakeWordManager?.destroy()
+                    wakeWordManager = manager
+                    wakeWordManager?.listener = object : WakeWordListeningManager.Listener {
+                        override fun onWakeWordDetected() {
+                            Log.d(TAG, "唤醒词检测到，切换到 Baidu 做命令识别")
+                            stopWakeWordListening()
+                            circleView?.showListening()
+                            speechManager.start()
+                        }
+
+                        override fun onError(message: String) {
+                            Log.e(TAG, "唤醒词监听错误: $message")
+                            circleView?.showRecognitionError(message)
+                            handler.postDelayed({
+                                circleView?.collapseToIdle()
+                            }, ERROR_DISPLAY_DURATION)
+                        }
+
+                        override fun onStateChanged(state: WakeWordListeningManager.State) {
+                            Log.d(TAG, "唤醒词监听状态: $state")
+                        }
+                    }
+                    Log.d(TAG, "唤醒词监听管理器初始化成功")
+                    syncWakeWordListening()
+                } else {
+                    Log.w(TAG, "唤醒词监听管理器初始化失败")
+                    manager.destroy()
+                }
+            }
+        }
         observeSettings()
         observeExecutionState()
         observeBaiduCredentials()
@@ -136,41 +170,6 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                 speechManager.setCredentials(credentials.apiKey, credentials.secretKey)
                 Log.d(TAG, "百度凭据已更新，valid=${credentials.isValid}")
             }
-        }
-    }
-
-    private fun initWakeWordManager() {
-        wakeWordManager?.destroy()
-        wakeWordManager = WakeWordListeningManager(service)
-        if (wakeWordManager?.init() == true) {
-            wakeWordManager?.listener = object : WakeWordListeningManager.Listener {
-                override fun onWakeWordDetected() {
-                    handler.post {
-                        Log.d(TAG, "唤醒词检测到，切换到 Baidu 做命令识别")
-                        // Vosk 检到唤醒词后已 break 循环；这里再显式 stop 一次，确保麦克风被释放后再给 Baidu
-                        stopWakeWordListening()
-                        circleView?.showListening()
-                        speechManager.start()
-                    }
-                }
-
-                override fun onError(message: String) {
-                    handler.post {
-                        Log.e(TAG, "唤醒词监听错误: $message")
-                        circleView?.showRecognitionError(message)
-                    }
-                    handler.postDelayed({
-                        circleView?.collapseToIdle()
-                    }, ERROR_DISPLAY_DURATION)
-                }
-
-                override fun onStateChanged(state: WakeWordListeningManager.State) {
-                    Log.d(TAG, "唤醒词监听状态: $state")
-                }
-            }
-            Log.d(TAG, "唤醒词监听管理器初始化成功")
-        } else {
-            Log.w(TAG, "唤醒词监听管理器初始化失败")
         }
     }
 

@@ -81,9 +81,12 @@ class MyAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         autoAccessibilityService = this
 
-        // 初始化悬浮窗管理器
         floatingWindowManager = FloatingWindowManager(this)
-        floatingWindowManager?.init()
+        try {
+            floatingWindowManager?.init()
+        } catch (t: Throwable) {
+            Log.e(TAG, "SERVICE_INIT_FAIL", t)
+        }
     }
 
     /**

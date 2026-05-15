@@ -66,6 +66,21 @@
     <string name="text_input_mode_direct">直接设置文本（标准）</string>
     <string name="text_input_mode_ime">输入法模拟（最强）</string>
     <string name="text_input_mode_ime_hint">当前模式需要切换到 SpeakAssist 输入法才能稳定输入</string>
+    <string name="diagnostics_privacy_title">开启诊断日志上传</string>
+    <string name="diagnostics_privacy_message">开启后，设备将在以下情况自动上传诊断日志到云端：
+
+• 每次冷启动时上传上次 session 的日志
+• 应用崩溃后下次启动自动上传崩溃前日志
+• 可随时点击"立即上传"手动触发
+
+会上传的内容：设备型号、系统版本、应用日志。
+
+不会上传的内容：通话记录、短信、联系人、地理位置、截图。
+
+您随时可以在设置中关闭此功能。</string>
+    <string name="diagnostics_upload_success">诊断日志已上传</string>
+    <string name="diagnostics_upload_failed">上传失败，请检查网络</string>
+    <string name="diagnostics_disabled_hint">请先开启"上传诊断日志"开关</string>
     <string name="cancel">取消</string>
     <string name="execution_cancel">取消</string>
     <string name="execution_cancelling">取消中...</string>

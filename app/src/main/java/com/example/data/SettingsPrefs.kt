@@ -18,6 +18,7 @@ object SettingsPrefs {
     private val FLOATING_WINDOW_ENABLED = booleanPreferencesKey("floating_window_enabled")
     private val TEXT_INPUT_MODE = stringPreferencesKey("text_input_mode")
     private val VOICE_WAKE_ENABLED = booleanPreferencesKey("voice_wake_enabled")
+    private val DIAGNOSTICS_UPLOAD_ENABLED = booleanPreferencesKey("diagnostics_upload_enabled")
     private val ZHIPU_API_KEY = stringPreferencesKey("zhipu_api_key")
     private val BAIDU_API_KEY = stringPreferencesKey("baidu_api_key")
     private val BAIDU_SECRET_KEY = stringPreferencesKey("baidu_secret_key")
@@ -63,6 +64,21 @@ object SettingsPrefs {
     suspend fun setVoiceWakeEnabled(context: Context, enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[VOICE_WAKE_ENABLED] = enabled
+        }
+    }
+
+    /**
+     * 诊断日志上传开关（默认 false）
+     */
+    fun diagnosticsUploadEnabled(context: Context): Flow<Boolean> {
+        return context.dataStore.data.map { prefs ->
+            prefs[DIAGNOSTICS_UPLOAD_ENABLED] ?: false
+        }
+    }
+
+    suspend fun setDiagnosticsUploadEnabled(context: Context, enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[DIAGNOSTICS_UPLOAD_ENABLED] = enabled
         }
     }
 
