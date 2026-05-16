@@ -17,6 +17,7 @@
         android:ellipsize="none"
         android:padding="12dp"
         android:textSize="14sp"
-        android:lineSpacingExtra="4dp" />
+        android:lineSpacingExtra="4dp"
+        android:textIsSelectable="true" />
 
 </FrameLayout>
