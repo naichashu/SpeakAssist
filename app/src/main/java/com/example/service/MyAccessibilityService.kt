@@ -6,7 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Path
 import android.graphics.Rect
 import android.os.Build
-import android.util.Log
+import com.example.diagnostics.AppLog
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.example.floating.FloatingWindowManager
@@ -88,7 +88,7 @@ class MyAccessibilityService : AccessibilityService() {
         try {
             floatingWindowManager?.init()
         } catch (t: Throwable) {
-            Log.e(TAG, "SERVICE_INIT_FAIL", t)
+            AppLog.e(TAG, "SERVICE_INIT_FAIL", t)
         }
     }
 
@@ -116,7 +116,7 @@ class MyAccessibilityService : AccessibilityService() {
      * 监听中断
      */
     override fun onInterrupt() {
-        Log.w(TAG, "无障碍服务被中断")
+        AppLog.w(TAG, "无障碍服务被中断")
     }
 
     /**
@@ -141,13 +141,13 @@ class MyAccessibilityService : AccessibilityService() {
         // strict 档（华为/荣耀）：dispatchGesture 派发虽成功但 App 不响应，
         // ACTION_CLICK 直接触发节点反而有效。改为优先尝试。
         if (profile.useActionClickAsPrimary) {
-            Log.d(TAG, "尝试 ACTION_CLICK 主路径：坐标($x, $y) profile=${profile.name}")
+            AppLog.d(TAG, "尝试 ACTION_CLICK 主路径：坐标($x, $y) profile=${profile.name}")
             val actionClickResult = performActionClick(x, y)
             if (actionClickResult) {
-                Log.i(TAG, "ACTION_CLICK 主路径成功：坐标($x, $y)")
+                AppLog.i(TAG, "ACTION_CLICK 主路径成功：坐标($x, $y)")
                 return true
             }
-            Log.w(TAG, "ACTION_CLICK 主路径失败，降级 dispatchGesture：坐标($x, $y)")
+            AppLog.w(TAG, "ACTION_CLICK 主路径失败，降级 dispatchGesture：坐标($x, $y)")
         }
 
         val path = Path()
@@ -158,10 +158,10 @@ class MyAccessibilityService : AccessibilityService() {
         val gesture = GestureDescription.Builder()
             .addStroke(stroke)
             .build()
-        Log.d(TAG, "执行点击：坐标($x, $y) duration=${profile.tapDurationMs}ms profile=${profile.name}")
+        AppLog.d(TAG, "执行点击：坐标($x, $y) duration=${profile.tapDurationMs}ms profile=${profile.name}")
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-            Log.e(TAG, "系统版本不支持dispatchGesture")
+            AppLog.e(TAG, "系统版本不支持dispatchGesture")
             return false
         }
 
@@ -170,7 +170,7 @@ class MyAccessibilityService : AccessibilityService() {
         val targetPackage = preSnapshot?.packageName
         val preInteractionSeq = targetPackage?.let { packageInteractionSeq(it) }
         val result = dispatchGestureAwaiting(gesture)
-        Log.d(TAG, "点击手势${if (result) "已派发" else "派发失败"}")
+        AppLog.d(TAG, "点击手势${if (result) "已派发" else "派发失败"}")
 
         if (result) {
             delay(350)
@@ -179,13 +179,13 @@ class MyAccessibilityService : AccessibilityService() {
                     preInteractionSeq != null &&
                     packageInteractionSeq(targetPackage) > preInteractionSeq
             if (preWindowId != null && preWindowId != postWindowId) {
-                Log.d(
+                AppLog.d(
                     TAG,
                     "tap_window_changed: $preWindowId -> $postWindowId at($x,$y) " +
                             "package=$targetPackage profile=${profile.name}",
                 )
             } else if (preWindowId != null && preWindowId == postWindowId && !hasInteractionFeedback) {
-                Log.w(
+                AppLog.w(
                     TAG,
                     "invalid_tap_confirmed: windowId unchanged ($preWindowId), no accessibility feedback " +
                             "package=$targetPackage at($x,$y) profile=${profile.name} " +
@@ -195,7 +195,7 @@ class MyAccessibilityService : AccessibilityService() {
                     return false
                 }
             } else if (preWindowId != null && preWindowId == postWindowId) {
-                Log.d(
+                AppLog.d(
                     TAG,
                     "tap_feedback_observed: windowId unchanged ($preWindowId), " +
                             "accessibility feedback observed at($x,$y) package=$targetPackage",
@@ -209,7 +209,7 @@ class MyAccessibilityService : AccessibilityService() {
         // 于改动前。
         if (profile.enableActionClickFallback) {
             val fallbackResult = performActionClick(x, y)
-            Log.i(
+            AppLog.i(
                 TAG,
                 "ACTION_CLICK 兜底${if (fallbackResult) "成功" else "失败"}：坐标($x, $y) " +
                         "profile=${profile.name}",
@@ -234,12 +234,12 @@ class MyAccessibilityService : AccessibilityService() {
 
     private fun performActionClick(x: Float, y: Float): Boolean {
         val root = rootInActiveWindow ?: run {
-            Log.w(TAG, "ACTION_CLICK 路径无可用窗口：rootInActiveWindow=null at($x,$y)")
+            AppLog.w(TAG, "ACTION_CLICK 路径无可用窗口：rootInActiveWindow=null at($x,$y)")
             return false
         }
         val target = findClickableNodeAt(root, x.toInt(), y.toInt())
         if (target == null) {
-            Log.w(
+            AppLog.w(
                 TAG,
                 "ACTION_CLICK 未找到可点击节点 at($x,$y) " +
                         "rootPackage=${root.packageName} childCount=${root.childCount}",
@@ -253,9 +253,9 @@ class MyAccessibilityService : AccessibilityService() {
         return try {
             val performed = target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
             if (performed) {
-                Log.i(TAG, "ACTION_CLICK 节点响应成功 at($x,$y) $nodeDesc")
+                AppLog.i(TAG, "ACTION_CLICK 节点响应成功 at($x,$y) $nodeDesc")
             } else {
-                Log.w(TAG, "ACTION_CLICK 节点 performAction 返回 false at($x,$y) $nodeDesc")
+                AppLog.w(TAG, "ACTION_CLICK 节点 performAction 返回 false at($x,$y) $nodeDesc")
             }
             performed
         } finally {
@@ -404,7 +404,7 @@ class MyAccessibilityService : AccessibilityService() {
      */
     suspend fun longPressByNode(x: Float, y: Float): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-            Log.e(TAG, "系统版本不支持dispatchGesture")
+            AppLog.e(TAG, "系统版本不支持dispatchGesture")
             return false
         }
 
@@ -421,10 +421,10 @@ class MyAccessibilityService : AccessibilityService() {
             .addStroke(stroke)
             .build()
 
-        Log.d(TAG, "执行长按：坐标($x, $y)，持续时间${longPressDuration}ms")
+        AppLog.d(TAG, "执行长按：坐标($x, $y)，持续时间${longPressDuration}ms")
 
         val result = dispatchGestureAwaiting(gesture)
-        Log.d(TAG, "长按手势${if (result) "已派发" else "派发失败"}")
+        AppLog.d(TAG, "长按手势${if (result) "已派发" else "派发失败"}")
         return result
     }
 
@@ -436,7 +436,7 @@ class MyAccessibilityService : AccessibilityService() {
      */
     suspend fun doubleTapByNode(x: Float, y: Float): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-            Log.e(TAG, "系统版本不支持dispatchGesture")
+            AppLog.e(TAG, "系统版本不支持dispatchGesture")
             return false
         }
 
@@ -458,7 +458,7 @@ class MyAccessibilityService : AccessibilityService() {
             .addStroke(secondClick)
             .build()
 
-        Log.d(
+        AppLog.d(
             TAG,
             "执行双击：坐标($x, $y) first=${profile.doubleTapFirstDurationMs}ms " +
                     "gap=${profile.doubleTapStartGapMs}ms second=${profile.doubleTapSecondDurationMs}ms " +
@@ -466,7 +466,7 @@ class MyAccessibilityService : AccessibilityService() {
         )
 
         val result = dispatchGestureAwaiting(gesture)
-        Log.d(TAG, "双击手势${if (result) "已派发" else "派发失败"}")
+        AppLog.d(TAG, "双击手势${if (result) "已派发" else "派发失败"}")
         return result
     }
 
@@ -480,7 +480,7 @@ class MyAccessibilityService : AccessibilityService() {
      */
     suspend fun swipeByNode(startX: Float, startY: Float, endX: Float, endY: Float): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-            Log.e(TAG, "系统版本不支持dispatchGesture")
+            AppLog.e(TAG, "系统版本不支持dispatchGesture")
             return false
         }
 
@@ -498,10 +498,10 @@ class MyAccessibilityService : AccessibilityService() {
             .addStroke(stroke)
             .build()
 
-        Log.d(TAG, "执行滑动：从($startX, $startY)到($endX, $endY)，持续${swipeDuration}ms")
+        AppLog.d(TAG, "执行滑动：从($startX, $startY)到($endX, $endY)，持续${swipeDuration}ms")
 
         val result = dispatchGestureAwaiting(gesture)
-        Log.d(TAG, "滑动手势${if (result) "已派发" else "派发失败"}")
+        AppLog.d(TAG, "滑动手势${if (result) "已派发" else "派发失败"}")
         return result
     }
 
@@ -596,7 +596,7 @@ class MyAccessibilityService : AccessibilityService() {
      * @param callback：截图结果回调
      */
     fun getScreenshot(callback: (Bitmap?) -> Unit) {
-        Log.d(TAG, "开始截图")
+        AppLog.d(TAG, "开始截图")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             mainExecutor.execute {
                 takeScreenshot(android.view.Display.DEFAULT_DISPLAY, mainExecutor,

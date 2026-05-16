@@ -1,7 +1,7 @@
 package com.example.diagnostics
 
 import android.content.Context
-import android.util.Log
+import com.example.diagnostics.AppLog
 import com.google.gson.Gson
 import kotlinx.coroutines.*
 import okhttp3.*
@@ -54,7 +54,7 @@ object DiagnosticsUploader {
         if (hash != null && dedup.containsKey(hash)) {
             val lastSeen = dedup[hash] ?: 0L
             if (now - lastSeen < DEDUP_WINDOW_MS) {
-                Log.i(TAG, "skip duplicate: ${logFile.name} hash=$hash")
+                AppLog.i(TAG, "skip duplicate: ${logFile.name} hash=$hash")
                 return
             }
         }
@@ -92,7 +92,7 @@ object DiagnosticsUploader {
                 continue
             }
             if (file.length() > MAX_FILE_BYTES) {
-                Log.w(TAG, "skip oversized file: ${file.name} (${file.length()} bytes)")
+                AppLog.w(TAG, "skip oversized file: ${file.name} (${file.length()} bytes)")
                 it.remove()
                 continue
             }
@@ -132,10 +132,10 @@ object DiagnosticsUploader {
             val response = client.newCall(request).execute()
             val body = response.body?.string()
             response.close()
-            Log.i(TAG, "upload result: ${response.code} body=$body")
+            AppLog.i(TAG, "upload result: ${response.code} body=$body")
             return response.code == 200
         } catch (e: Exception) {
-            Log.e(TAG, "upload failed: ${file.name}", e)
+            AppLog.e(TAG, "upload failed: ${file.name}", e)
             return false
         }
     }

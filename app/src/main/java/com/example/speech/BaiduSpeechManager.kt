@@ -7,7 +7,7 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.util.Base64
-import android.util.Log
+import com.example.diagnostics.AppLog
 import androidx.core.app.ActivityCompat
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -120,10 +120,10 @@ class BaiduSpeechManager(private val context: Context) {
      *     适合主界面"按住说话"，由用户松手触发结束。
      */
     fun start(autoStopOnSilence: Boolean) {
-        Log.d(TAG, "start(autoStopOnSilence=$autoStopOnSilence) called")
+        AppLog.d(TAG, "start(autoStopOnSilence=$autoStopOnSilence) called")
 
         if (isListening()) {
-            Log.d(TAG, "Already listening")
+            AppLog.d(TAG, "Already listening")
             return
         }
 
@@ -143,9 +143,9 @@ class BaiduSpeechManager(private val context: Context) {
             try {
                 startRecordingAndRecognize(sessionId)
             } catch (e: CancellationException) {
-                Log.d(TAG, "识别已取消")
+                AppLog.d(TAG, "识别已取消")
             } catch (e: Exception) {
-                Log.e(TAG, "识别失败", e)
+                AppLog.e(TAG, "识别失败", e)
                 withContext(Dispatchers.Main) {
                     isListening = false
                     callback?.onError("识别失败: ${e.message}")
@@ -158,7 +158,7 @@ class BaiduSpeechManager(private val context: Context) {
      * 停止录音（停止录音但继续识别）
      */
     fun stop() {
-        Log.d(TAG, "stop() called")
+        AppLog.d(TAG, "stop() called")
         isRecording = false
     }
 
@@ -166,7 +166,7 @@ class BaiduSpeechManager(private val context: Context) {
      * 取消识别
      */
     fun cancel() {
-        Log.d(TAG, "cancel()")
+        AppLog.d(TAG, "cancel()")
         sessionCounter.incrementAndGet()
         isListening = false
         isRecording = false
@@ -177,7 +177,7 @@ class BaiduSpeechManager(private val context: Context) {
      * 销毁
      */
     fun destroy() {
-        Log.d(TAG, "destroy()")
+        AppLog.d(TAG, "destroy()")
         isListening = false
         isRecording = false
         stopRecordingAndCancel()
@@ -194,12 +194,12 @@ class BaiduSpeechManager(private val context: Context) {
         try {
             record?.stop()
         } catch (e: Exception) {
-            Log.e(TAG, "停止录音失败（设备状态异常）", e)
+            AppLog.e(TAG, "停止录音失败（设备状态异常）", e)
         }
         try {
             record?.release()
         } catch (e: Exception) {
-            Log.e(TAG, "释放录音资源失败", e)
+            AppLog.e(TAG, "释放录音资源失败", e)
         }
         isListening = false
         isRecording = false
@@ -240,7 +240,7 @@ class BaiduSpeechManager(private val context: Context) {
 
         // 初始化录音
         val bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
-        Log.d(TAG, "录音缓冲区大小: $bufferSize")
+        AppLog.d(TAG, "录音缓冲区大小: $bufferSize")
 
         if (bufferSize == AudioRecord.ERROR || bufferSize == AudioRecord.ERROR_BAD_VALUE) {
             withContext(Dispatchers.Main) {
@@ -264,7 +264,7 @@ class BaiduSpeechManager(private val context: Context) {
                 bufferSize * 4
             )
         } catch (e: SecurityException) {
-            Log.e(TAG, "缺少录音权限", e)
+            AppLog.e(TAG, "缺少录音权限", e)
             withContext(Dispatchers.Main) {
                 isListening = false
                 callback?.onError("缺少录音权限")
@@ -292,7 +292,7 @@ class BaiduSpeechManager(private val context: Context) {
         withContext(Dispatchers.Main) {
             callback?.onReady()
         }
-        Log.d(TAG, "开始录音...")
+        AppLog.d(TAG, "开始录音...")
 
         // 录音数据
         val audioData = ByteArrayOutputStream()
@@ -321,7 +321,7 @@ class BaiduSpeechManager(private val context: Context) {
         } else {
             HOLD_TO_TALK_MAX_DURATION_MS
         }
-        Log.d(TAG, "语音输入预学习完成，基底 RMS=${"%.1f".format(noiseFloorRms)}, " +
+        AppLog.d(TAG, "语音输入预学习完成，基底 RMS=${"%.1f".format(noiseFloorRms)}, " +
             "VAD=${vadParams}, 录音上限=${maxDurationMs}ms, autoStop=${autoStopOnSilence}")
 
         // 录音循环
@@ -359,7 +359,7 @@ class BaiduSpeechManager(private val context: Context) {
                     val elapsed = now - startTime
                     if (elapsed > vadParams.minSpeechDurationMs &&
                         now - silenceStartTime >= vadParams.silenceDurationMs) {
-                        Log.d(TAG, "检测到静音停顿，自动停止录音")
+                        AppLog.d(TAG, "检测到静音停顿，自动停止录音")
                         isRecording = false
                         break
                     }
@@ -375,19 +375,19 @@ class BaiduSpeechManager(private val context: Context) {
         try {
             record?.stop()
         } catch (e: Exception) {
-            Log.e(TAG, "停止录音失败", e)
+            AppLog.e(TAG, "停止录音失败", e)
         }
         try {
             record?.release()
         } catch (e: Exception) {
-            Log.e(TAG, "释放录音资源失败", e)
+            AppLog.e(TAG, "释放录音资源失败", e)
         }
 
-        Log.d(TAG, "录音结束，数据大小: ${audioData.size()}")
+        AppLog.d(TAG, "录音结束，数据大小: ${audioData.size()}")
 
         val audioBytes = audioData.toByteArray()
         if (!isSessionActive(sessionId) || !isListening) {
-            Log.d(TAG, "识别已取消，跳过结果回调")
+            AppLog.d(TAG, "识别已取消，跳过结果回调")
             return
         }
 
@@ -405,7 +405,7 @@ class BaiduSpeechManager(private val context: Context) {
         val result = recognize(audioBase64, audioBytes.size)
 
         if (!isSessionActive(sessionId)) {
-            Log.d(TAG, "识别结果返回时会话已失效，丢弃结果")
+            AppLog.d(TAG, "识别结果返回时会话已失效，丢弃结果")
             return
         }
 
@@ -432,15 +432,15 @@ class BaiduSpeechManager(private val context: Context) {
                 if (response.isSuccessful) {
                     val json = JSONObject(response.body?.string() ?: "")
                     json.getString("access_token").also {
-                        Log.d(TAG, "获取 Access Token 成功")
+                        AppLog.d(TAG, "获取 Access Token 成功")
                     }
                 } else {
-                    Log.e(TAG, "获取 Token 失败: ${response.code}")
+                    AppLog.e(TAG, "获取 Token 失败: ${response.code}")
                     null
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "获取 Access Token 失败", e)
+            AppLog.e(TAG, "获取 Access Token 失败", e)
             null
         }
     }
@@ -462,7 +462,7 @@ class BaiduSpeechManager(private val context: Context) {
             }
 
             val jsonString = jsonBody.toString()
-            Log.d(TAG, "发送识别请求，音频长度: $audioLength 字节")
+            AppLog.d(TAG, "发送识别请求，音频长度: $audioLength 字节")
 
             val requestBody = jsonString.toRequestBody("application/json".toMediaType())
 
@@ -475,7 +475,7 @@ class BaiduSpeechManager(private val context: Context) {
             client.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
                     val json = JSONObject(response.body?.string() ?: "")
-                    Log.d(TAG, "识别响应: $json")
+                    AppLog.d(TAG, "识别响应: $json")
 
                     val errNo = json.optInt("err_no", -1)
                     if (errNo == 0) {
@@ -488,16 +488,16 @@ class BaiduSpeechManager(private val context: Context) {
                         } else null
                     } else {
                         val errMsg = json.optString("err_msg", "未知错误")
-                        Log.e(TAG, "识别错误: $errNo - $errMsg")
+                        AppLog.e(TAG, "识别错误: $errNo - $errMsg")
                         null
                     }
                 } else {
-                    Log.e(TAG, "识别请求失败: ${response.code}")
+                    AppLog.e(TAG, "识别请求失败: ${response.code}")
                     null
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "识别失败", e)
+            AppLog.e(TAG, "识别失败", e)
             null
         }
     }

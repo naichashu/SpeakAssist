@@ -1,7 +1,7 @@
 package com.example.speakassist
 
 import android.app.Application
-import android.util.Log
+import com.example.diagnostics.AppLog
 import com.example.data.SettingsPrefs
 import com.example.diagnostics.DiagnosticsUploader
 import com.example.diagnostics.LogcatTee
@@ -22,7 +22,7 @@ class SpeakAssistApplication : Application() {
         }
 
         if (diagnosticsEnabled) {
-            Log.i(TAG, "Diagnostics enabled, starting LogcatTee + Uploader")
+            AppLog.i(TAG, "Diagnostics enabled, starting LogcatTee + Uploader")
             LogcatTee.start(this)
             DiagnosticsUploader.init(this)
 
@@ -30,13 +30,13 @@ class SpeakAssistApplication : Application() {
             if (markerFile.exists()) {
                 handleCrashFollowup()
             } else {
-                val prevLog = LogcatTee.getLogFile()
-                if (prevLog != null && prevLog.exists()) {
+                val prevLog = File(filesDir, "logs/current.log.1")
+                if (prevLog.exists() && prevLog.length() > 0) {
                     DiagnosticsUploader.enqueue(this, prevLog, "cold_start")
                 }
             }
         } else {
-            Log.i(TAG, "Diagnostics disabled")
+            AppLog.i(TAG, "Diagnostics disabled")
         }
 
         registerGlobalExceptionHandler()
@@ -45,7 +45,7 @@ class SpeakAssistApplication : Application() {
     private fun handleCrashFollowup() {
         val markerFile = File(filesDir, "logs/.crash_marker")
         markerFile.delete()
-        Log.i(TAG, "Crash marker found, uploading crash logs")
+        AppLog.i(TAG, "Crash marker found, uploading crash logs")
 
         val logDir = File(filesDir, "logs")
         val prev = File(logDir, "current.log.1")
@@ -59,7 +59,7 @@ class SpeakAssistApplication : Application() {
                 current.copyTo(copy, overwrite = true)
                 DiagnosticsUploader.enqueue(this, copy, "crash_followup")
             } catch (e: Exception) {
-                Log.e(TAG, "crash copy failed", e)
+                AppLog.e(TAG, "crash copy failed", e)
             }
         }
     }
@@ -67,7 +67,7 @@ class SpeakAssistApplication : Application() {
     private fun registerGlobalExceptionHandler() {
         val originalHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            Log.e(TAG, "UNCAUGHT", throwable)
+            AppLog.e(TAG, "UNCAUGHT", throwable)
             if (diagnosticsEnabled) {
                 LogcatTee.flush()
                 val markerFile = File(filesDir, "logs/.crash_marker")

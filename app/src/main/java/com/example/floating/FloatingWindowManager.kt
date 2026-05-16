@@ -3,7 +3,7 @@ package com.example.floating
 import android.accessibilityservice.AccessibilityService
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
+import com.example.diagnostics.AppLog
 import android.view.WindowManager
 import com.example.data.SettingsPrefs
 import com.example.speech.BaiduSpeechConfig
@@ -71,7 +71,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                 stopNoiseLevelObserver()
                 if (text.isBlank()) {
                     // 防御：Baidu 理论上已经把空结果转成 onError，这里兜底避免空文本派发任务
-                    Log.w(TAG, "onResult 收到空文本，按错误处理")
+                    AppLog.w(TAG, "onResult 收到空文本，按错误处理")
                     handler.post {
                         circleView?.showRecognitionError("未识别到语音")
                     }
@@ -121,14 +121,14 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                     wakeWordManager = manager
                     wakeWordManager?.listener = object : WakeWordListeningManager.Listener {
                         override fun onWakeWordDetected() {
-                            Log.d(TAG, "唤醒词检测到，切换到 Baidu 做命令识别")
+                            AppLog.d(TAG, "唤醒词检测到，切换到 Baidu 做命令识别")
                             stopWakeWordListening()
                             circleView?.showListening()
                             speechManager.start()
                         }
 
                         override fun onError(message: String) {
-                            Log.e(TAG, "唤醒词监听错误: $message")
+                            AppLog.e(TAG, "唤醒词监听错误: $message")
                             circleView?.showRecognitionError(message)
                             handler.postDelayed({
                                 circleView?.collapseToIdle()
@@ -136,13 +136,13 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                         }
 
                         override fun onStateChanged(state: WakeWordListeningManager.State) {
-                            Log.d(TAG, "唤醒词监听状态: $state")
+                            AppLog.d(TAG, "唤醒词监听状态: $state")
                         }
                     }
-                    Log.d(TAG, "唤醒词监听管理器初始化成功")
+                    AppLog.d(TAG, "唤醒词监听管理器初始化成功")
                     syncWakeWordListening()
                 } else {
-                    Log.w(TAG, "唤醒词监听管理器初始化失败")
+                    AppLog.w(TAG, "唤醒词监听管理器初始化失败")
                     manager.destroy()
                 }
             }
@@ -153,12 +153,12 @@ class FloatingWindowManager(private val service: AccessibilityService) {
 
         // 延迟检查恢复：给 Flow 一帧时间发出初始值，再判断是否该恢复悬浮窗
         handler.post {
-            Log.d(TAG, "init 恢复检查: companionShouldShowCircle=$companionShouldShowCircle companionWasTaskRunning=$companionWasTaskRunning isCircleEnabled=$isCircleEnabled")
+            AppLog.d(TAG, "init 恢复检查: companionShouldShowCircle=$companionShouldShowCircle companionWasTaskRunning=$companionWasTaskRunning isCircleEnabled=$isCircleEnabled")
             if (companionShouldShowCircle && isCircleEnabled && !companionWasTaskRunning) {
                 showCircle()
             }
         }
-        Log.d(TAG, "FloatingWindowManager 已初始化")
+        AppLog.d(TAG, "FloatingWindowManager 已初始化")
     }
 
     /**
@@ -168,7 +168,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
         scope.launch {
             BaiduSpeechConfig.credentialsFlow(service.applicationContext).collect { credentials ->
                 speechManager.setCredentials(credentials.apiKey, credentials.secretKey)
-                Log.d(TAG, "百度凭据已更新，valid=${credentials.isValid}")
+                AppLog.d(TAG, "百度凭据已更新，valid=${credentials.isValid}")
             }
         }
     }
@@ -179,7 +179,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
         wakeWordManager?.destroy()
         wakeWordManager = null
         scope.cancel()
-        Log.d(TAG, "FloatingWindowManager 已销毁")
+        AppLog.d(TAG, "FloatingWindowManager 已销毁")
     }
 
     fun resumeOverlays() {
@@ -245,7 +245,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
             }
         })
         circleView?.create()
-        Log.d(TAG, "圆形悬浮窗已显示")
+        AppLog.d(TAG, "圆形悬浮窗已显示")
     }
 
     fun hideCircle() {
@@ -253,7 +253,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
         circleView?.destroy()
         circleView = null
         stopWakeWordListening()
-        Log.d(TAG, "圆形悬浮窗已隐藏")
+        AppLog.d(TAG, "圆形悬浮窗已隐藏")
     }
 
     private fun cancelSpeechRecognition() {
@@ -270,22 +270,22 @@ class FloatingWindowManager(private val service: AccessibilityService) {
 
     private fun startWakeWordListening() {
         if (!isVoiceWakeEnabled) {
-            Log.d(TAG, "语音唤醒开关关闭，跳过启动监听")
+            AppLog.d(TAG, "语音唤醒开关关闭，跳过启动监听")
             return
         }
         if (overlaysSuspended || isTaskRunning || circleView == null || speechManager.isListening()) {
-            Log.d(TAG, "当前场景不允许启动唤醒监听")
+            AppLog.d(TAG, "当前场景不允许启动唤醒监听")
             return
         }
         if (wakeWordManager?.state?.value == WakeWordListeningManager.State.IDLE) {
             wakeWordManager?.startListening()
-            Log.d(TAG, "唤醒词监听已启动")
+            AppLog.d(TAG, "唤醒词监听已启动")
         }
     }
 
     private fun stopWakeWordListening() {
         wakeWordManager?.stopListening()
-        Log.d(TAG, "唤醒词监听已停止")
+        AppLog.d(TAG, "唤醒词监听已停止")
     }
 
     private fun syncWakeWordListening() {
@@ -334,7 +334,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                     windowManager.removeView(view)
                     executionCardView?.markShowing(false)
                 } catch (e: Exception) {
-                    Log.w(TAG, "截屏前隐藏卡片失败", e)
+                    AppLog.w(TAG, "截屏前隐藏卡片失败", e)
                 }
             }
             executionCancelChipView?.rootView?.let { view ->
@@ -342,7 +342,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                     windowManager.removeView(view)
                     executionCancelChipView?.markShowing(false)
                 } catch (e: Exception) {
-                    Log.w(TAG, "截屏前隐藏取消入口失败", e)
+                    AppLog.w(TAG, "截屏前隐藏取消入口失败", e)
                 }
             }
         }
@@ -360,7 +360,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                         windowManager.addView(view, params)
                         card.markShowing(true)
                     } catch (e: Exception) {
-                        Log.w(TAG, "截屏后恢复卡片失败", e)
+                        AppLog.w(TAG, "截屏后恢复卡片失败", e)
                     }
                 }
             }
@@ -370,7 +370,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                         windowManager.addView(view, params)
                         chip.markShowing(true)
                     } catch (e: Exception) {
-                        Log.w(TAG, "截屏后恢复取消入口失败", e)
+                        AppLog.w(TAG, "截屏后恢复取消入口失败", e)
                     }
                 }
             }
@@ -396,7 +396,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                     windowManager.removeView(view)
                     chip.markShowing(false)
                 } catch (e: Exception) {
-                    Log.w(TAG, "手势前摘除取消入口失败", e)
+                    AppLog.w(TAG, "手势前摘除取消入口失败", e)
                 }
             }
         }
@@ -416,7 +416,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                             windowManager.addView(view, params)
                             card.markShowing(true)
                         } catch (e: Exception) {
-                            Log.w(TAG, "手势后恢复卡片失败", e)
+                            AppLog.w(TAG, "手势后恢复卡片失败", e)
                         }
                     }
                 }
@@ -429,18 +429,18 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                 windowManager.addView(view, params)
                 chip.markShowing(true)
             } catch (e: Exception) {
-                Log.w(TAG, "手势后恢复取消入口失败", e)
+                AppLog.w(TAG, "手势后恢复取消入口失败", e)
             }
         }
     }
 
     private fun onVoiceResult(text: String) {
-        Log.d(TAG, "语音识别结果：$text")
+        AppLog.d(TAG, "语音识别结果：$text")
         // 并发护栏：companion StateFlow 是进程级单例，主界面与悬浮窗共享。
         // 正常情况下 isTaskRunning 已经把唤醒词监听挡在前面，这里是双重保险——
         // 防止主界面任务执行时悬浮窗的语音命令旁路启动第二条循环。
         if (ChatViewModel.executionState.value.isRunning) {
-            Log.w(TAG, "已有任务在执行，丢弃语音命令: $text")
+            AppLog.w(TAG, "已有任务在执行，丢弃语音命令: $text")
             handler.post {
                 circleView?.showRecognitionError(service.getString(com.example.speakassist.R.string.task_already_running))
             }
@@ -454,7 +454,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
             try {
                 val viewModel = ChatViewModel(service.application)
                 val result = viewModel.executeTaskLoop(text)
-                Log.d(TAG, "任务执行完成: ${result.success} - ${result.message}")
+                AppLog.d(TAG, "任务执行完成: ${result.success} - ${result.message}")
             } catch (e: CancellationException) {
                 // executeTaskLoop 内部 catch 已经走 finishTask 把 _executionState
                 // 更新到 isCompleted=true（含 isCancelled 标志），这里不要再 resetState
@@ -462,7 +462,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                 // showCompletion 动画可能被打断。让 cancel 信号正常透传即可。
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "任务执行失败", e)
+                AppLog.e(TAG, "任务执行失败", e)
                 ChatViewModel.resetState()
             }
         }
@@ -485,13 +485,13 @@ class FloatingWindowManager(private val service: AccessibilityService) {
         scope.launch {
             SettingsPrefs.voiceWakeEnabled(service.applicationContext).collectLatest { enabled ->
                 if (enabled && !isCircleEnabled) {
-                    Log.d(TAG, "悬浮窗未开启，回收语音唤醒开关状态")
+                    AppLog.d(TAG, "悬浮窗未开启，回收语音唤醒开关状态")
                     SettingsPrefs.setVoiceWakeEnabled(service.applicationContext, false)
                     return@collectLatest
                 }
                 val wasActive = wakeWordManager?.state?.value != WakeWordListeningManager.State.IDLE
                 isVoiceWakeEnabled = enabled
-                Log.d(TAG, "语音唤醒开关状态: $enabled")
+                AppLog.d(TAG, "语音唤醒开关状态: $enabled")
                 syncWakeWordListening()
                 // 关闭开关时，如果此时唤醒词管理器处于非 IDLE（例如 WAKE_DETECTED 等命令），
                 // 需要把圆圈视觉一起收回，避免卡在"正在听需求..."状态
@@ -524,7 +524,7 @@ class FloatingWindowManager(private val service: AccessibilityService) {
                             // 防御：理论上 Bug A 修复后不会出现 isCompleted=true && isTaskRunning=false
                             // 但服务重建时 _executionState 可能历史就是 isCompleted=true，
                             // 兜底 reset 避免状态泄漏到下次任务（Bug C 防御）
-                            Log.w(TAG, "isCompleted 时 isTaskRunning=false，触发兜底 resetState")
+                            AppLog.w(TAG, "isCompleted 时 isTaskRunning=false，触发兜底 resetState")
                             ChatViewModel.resetState()
                             return@collectLatest
                         }

@@ -1,6 +1,6 @@
 package com.example.speech
 
-import android.util.Log
+import com.example.diagnostics.AppLog
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -54,7 +54,7 @@ class EnvironmentAnalyzer(
         adaptiveVad.reset(100.0)
         spectralDetector.reset()
         _noiseLevel.value = NoiseLevel.LOW
-        Log.d(TAG, "开始环境预学习（${warmupFrames} 帧预热 + ${preLearningFrames} 帧采样，去高 ${(trimRatio * 100).toInt()}%）")
+        AppLog.d(TAG, "开始环境预学习（${warmupFrames} 帧预热 + ${preLearningFrames} 帧采样，去高 ${(trimRatio * 100).toInt()}%）")
     }
 
     /**
@@ -89,7 +89,7 @@ class EnvironmentAnalyzer(
             adaptiveVad.setInitialNoiseFloor(avgSte)
             initialNoiseFloorRms = adaptiveVad.getNoiseFloorRms(preLearningLastSampleCount)
             isPreLearning = false
-            Log.d(TAG, "环境预学习完成，噪声基底 RMS=" +
+            AppLog.d(TAG, "环境预学习完成，噪声基底 RMS=" +
                 "${"%.1f".format(initialNoiseFloorRms)}（修剪后保留 $keepCount 帧）")
         }
     }

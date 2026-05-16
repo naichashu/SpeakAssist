@@ -1,7 +1,7 @@
 package com.example.ui.viewmodel
 
 import android.app.Application
-import android.util.Log
+import com.example.diagnostics.AppLog
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -91,7 +91,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     suspend fun executeTaskLoop(userPrompt: String): TaskResult {
-        Log.d(TAG, "开始执行任务")
+        AppLog.d(TAG, "开始执行任务")
         messageContext.clear()
 
         // 先通知开始执行（必须在任何前置检查之前），
@@ -138,13 +138,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             // 检查取消请求
             if (_cancelRequested.value) {
-                Log.d(TAG, "任务被用户取消，中断 HTTP 请求")
+                AppLog.d(TAG, "任务被用户取消，中断 HTTP 请求")
                 modelClient?.cancelCurrentRequest()
                 return finishTask(sessionId, false, "用户手动取消任务", isCancelled = true)
             }
 
             val client = modelClient ?: return finishTask(sessionId, false, "模型客户端未初始化")
-            Log.d(TAG, "执行步骤 $stepCount")
+            AppLog.d(TAG, "执行步骤 $stepCount")
 
             // hide overlay → 读前台包名 → 非自身才截图 → restore overlay。
             // captureForegroundContext 内部用 try-finally 保证 hide/restore 配对，
@@ -152,8 +152,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val myProjectApp = getApplication<Application>().packageName
             val (currentApp, screenShot) = accessibilityService.captureForegroundContext(myProjectApp)
             val isMyProjectApp = currentApp == myProjectApp
-            Log.d(TAG, "当前应用: $currentApp $myProjectApp")
-            Log.d(TAG, "获取屏幕截图结果: $screenShot")
+            AppLog.d(TAG, "当前应用: $currentApp $myProjectApp")
+            AppLog.d(TAG, "获取屏幕截图结果: $screenShot")
 
             if (screenShot == null && !isMyProjectApp) {
                 val androidVersion = android.os.Build.VERSION.SDK_INT
@@ -199,13 +199,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 // resumeWithException 把 Canceled IOException 抛到这里。
                 // 此时若 cancel 标志已设，直接退出循环。
                 if (_cancelRequested.value) {
-                    Log.d(TAG, "HTTP 请求被取消，结束任务")
+                    AppLog.d(TAG, "HTTP 请求被取消，结束任务")
                     return finishTask(sessionId, false, "用户手动取消任务", isCancelled = true)
                 }
                 throw e
             }
 
-            Log.d(
+            AppLog.d(
                 TAG,
                 "模型响应: thinking=${response.thinking.take(80)}, action=${response.action.take(80)}"
             )
@@ -221,7 +221,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     // 移除图片，只保留文本
                     messageContext[lastUserMessageIndex] =
                         client.removeImagesFromMessage(lastUserMessage)
-                    Log.d(TAG, "已移除最后一条用户消息中的图片")
+                    AppLog.d(TAG, "已移除最后一条用户消息中的图片")
                 }
             }
 
@@ -238,7 +238,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             // 连续失败拦截：同一 action type 失败 2 次就不再执行
             val result: ActionResult = if (stepFails >= MAX_STEP_ACTION_FAILURES) {
-                Log.d(TAG, "action=$actionType 当前step内已失败 $stepFails 次，跳过执行")
+                AppLog.d(TAG, "action=$actionType 当前step内已失败 $stepFails 次，跳过执行")
                 ActionResult(false, "该动作连续失败，强制换策略")
             } else {
                 actionExecutor?.execute(
@@ -248,7 +248,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 ) ?: ActionResult(false, "ActionExecutor is null")
             }
 
-            Log.d(TAG, "执行动作结果: ${result.success}: ${result.message}")
+            AppLog.d(TAG, "执行动作结果: ${result.success}: ${result.message}")
 
             // 更新执行状态供悬浮窗观察
             _executionState.value = _executionState.value.copy(
@@ -269,7 +269,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             )
 
             if (isFinishAction) {
-                Log.d(TAG, "任务完成(finish动作)")
+                AppLog.d(TAG, "任务完成(finish动作)")
                 return finishTask(sessionId, true, result.message ?: "任务执行完成")
             }
 
@@ -277,7 +277,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             if (!result.success) {
                 // 在微信里 type 失败 + DIRECT 模式 → 立即提示用户切换输入法
                 if (actionType == "type" && inputMode == TextInputMode.DIRECT && currentApp == "com.tencent.mm") {
-                    Log.w(TAG, "Type在微信+DIRECT模式下失败，立即提示用户切换输入法")
+                    AppLog.w(TAG, "Type在微信+DIRECT模式下失败，立即提示用户切换输入法")
                     Toast.makeText(
                         getApplication(),
                         "输入失败：微信等应用会拦截直接输入。请去「设置」→「输入方式」切换到「输入法模拟」模式后重试。",
@@ -293,7 +293,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 if (actionType == "type" && inputMode == TextInputMode.DIRECT &&
                     ((result.message ?: "").contains("不可访问") ||
                      (result.message ?: "").contains("剪贴板粘贴输入"))) {
-                    Log.w(TAG, "Type在DIRECT模式下被拦截，立即结束并提示用户")
+                    AppLog.w(TAG, "Type在DIRECT模式下被拦截，立即结束并提示用户")
                     Toast.makeText(
                         getApplication(),
                         "输入失败：微信等应用会拦截直接输入。请去「设置」→「输入方式」切换到「输入法模拟」模式后重试。",
@@ -326,13 +326,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     )
                 )
-                Log.d(TAG, "已向模型反馈失败: ${result.message}")
+                AppLog.d(TAG, "已向模型反馈失败: ${result.message}")
 
                 retryCount++
                 stepActionFailures[actionType] = stepFails + 1
 
                 if (retryCount > maxRetries) {
-                    Log.e(TAG, "重试超过上限，结束流程: ${result.message}")
+                    AppLog.e(TAG, "重试超过上限，结束流程: ${result.message}")
                     return finishTask(sessionId, false, "连续错误超过上限: ${result.message}")
                 }
 
@@ -346,21 +346,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             val settleDelayMs = result.actionDetail?.waitMs ?: 1000L
-            Log.d(TAG, "等待界面稳定: ${settleDelayMs}ms, action=${result.actionDetail?.type}")
+            AppLog.d(TAG, "等待界面稳定: ${settleDelayMs}ms, action=${result.actionDetail?.type}")
             delay(settleDelayMs)
             stepCount++
             // 每个成功的 step 完成后清零失败计数器，
             // 防止跨 step 的同种 action 误命中硬拦截阈值
             stepActionFailures.clear()
         }
-        Log.w("ChatViewModel", "达到最大步数限制")
+        AppLog.w("ChatViewModel", "达到最大步数限制")
         return finishTask(sessionId, false, "达到最大步数限制($maxSteps)")
         } catch (e: kotlinx.coroutines.CancellationException) {
             // 协程取消必须重抛，否则破坏取消语义
             finishTask(sessionId, false, "用户手动取消任务", isCancelled = true)
             throw e
         } catch (e: Exception) {
-            Log.e(TAG, "executeTaskLoop 异常", e)
+            AppLog.e(TAG, "executeTaskLoop 异常", e)
             return finishTask(sessionId, false, "执行异常：${toUserFacingError(e)}")
         }
     }

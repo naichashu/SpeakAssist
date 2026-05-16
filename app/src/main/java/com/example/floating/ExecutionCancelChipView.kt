@@ -5,7 +5,7 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
+import com.example.diagnostics.AppLog
 import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -72,7 +72,7 @@ class ExecutionCancelChipView(
 
         windowManager.addView(rootView, currentLayoutParams)
         isShowing = true
-        Log.d(TAG, "执行取消入口已显示")
+        AppLog.d(TAG, "执行取消入口已显示")
     }
 
     fun setCancelling(cancelling: Boolean) {
@@ -93,7 +93,7 @@ class ExecutionCancelChipView(
             try {
                 windowManager.removeView(it)
             } catch (e: Exception) {
-                Log.w(TAG, "移除执行取消入口失败", e)
+                AppLog.w(TAG, "移除执行取消入口失败", e)
             }
         }
         rootView = null

@@ -1,7 +1,7 @@
 package com.example.register
 
 import android.content.Intent
-import android.util.Log
+import com.example.diagnostics.AppLog
 import com.example.input.TextInputExecutor
 import com.example.service.MyAccessibilityService
 import com.google.gson.JsonObject
@@ -213,10 +213,10 @@ class ActionExecutor(private val service: MyAccessibilityService) {
      */
     suspend fun execute(actionJson: String, screenWidth: Int, screenHeight: Int): ActionResult {
         return try {
-            Log.d(TAG, "开始解析动作: ${actionJson.take(500)}")
+            AppLog.d(TAG, "开始解析动作: ${actionJson.take(500)}")
 
             val jsonString = extractJsonFromText(actionJson)
-            Log.d(TAG, "提取JSON: ${jsonString.take(250)}")
+            AppLog.d(TAG, "提取JSON: ${jsonString.take(250)}")
 
             // 如果没有JSON，则尝试修复
             if (jsonString.isEmpty() || jsonString == actionJson.trim()) {
@@ -226,14 +226,14 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                         val jsonElement = JsonParser.parseString(fixedJson)
                         if (jsonElement.isJsonObject) {
                             val actionObj = jsonElement.asJsonObject
-                            Log.d(TAG, "修复后解析JSON成功: $actionObj")
+                            AppLog.d(TAG, "修复后解析JSON成功: $actionObj")
                             // 处理动作对象
                             return processActionObject(actionObj, screenWidth, screenHeight)
                         }
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        Log.w(TAG, "修复后的 JSON 仍然无法解析", e)
+                        AppLog.w(TAG, "修复后的 JSON 仍然无法解析", e)
                     }
                 }
 
@@ -248,7 +248,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w(TAG, "标准解析失败，尝试 lenient 模式", e)
+                AppLog.w(TAG, "标准解析失败，尝试 lenient 模式", e)
                 try {
                     val reader = JsonReader(StringReader(jsonString))
                     reader.isLenient = true
@@ -256,7 +256,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                 } catch (e2: CancellationException) {
                     throw e2
                 } catch (e2: Exception) {
-                    Log.e(TAG, "Lenient 模式也失败", e2)
+                    AppLog.e(TAG, "Lenient 模式也失败", e2)
                     val fixedJson = tryFixMalformedJson(jsonString)
                     if (fixedJson.isNotEmpty()) {
                         try {
@@ -268,7 +268,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                         } catch (e3: CancellationException) {
                             throw e3
                         } catch (e3: Exception) {
-                            Log.e(TAG, "修复后仍然无法解析", e3)
+                            AppLog.e(TAG, "修复后仍然无法解析", e3)
                         }
                     }
                     throw e2
@@ -285,13 +285,13 @@ class ActionExecutor(private val service: MyAccessibilityService) {
             }
 
             val actionObj = jsonElement.asJsonObject
-            Log.d(TAG, "解析成功，对象: $actionObj")
+            AppLog.d(TAG, "解析成功，对象: $actionObj")
 
             processActionObject(actionObj, screenWidth, screenHeight)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.e(TAG, "解析动作失败", e)
+            AppLog.e(TAG, "解析动作失败", e)
             ActionResult(success = false, message = "解析动作失败: ${e.message}")
         }
     }
@@ -355,7 +355,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
     ): ActionResult {
         val metadata = actionObj.get("_metadata")?.asString ?: ""
 
-        Log.d(TAG, "处理动作: $metadata")
+        AppLog.d(TAG, "处理动作: $metadata")
 
         return when (metadata) {
             "finish" -> {
@@ -367,7 +367,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
                 val rawAction = actionObj.get("action")?.asString ?: ""
                 val action = rawAction.trim().trim('"', '\'')
                 if (rawAction != action) {
-                    Log.w(TAG, "action 字段含多余引号已清洗: '$rawAction' -> '$action'")
+                    AppLog.w(TAG, "action 字段含多余引号已清洗: '$rawAction' -> '$action'")
                 }
                 executeAction(action, actionObj, screenWidth, screenHeight)
             }
@@ -384,7 +384,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         screenWidth: Int,
         screenHeight: Int
     ): ActionResult {
-        Log.d(TAG, "执行动作类型: $action (lowercase: ${action.lowercase()})")
+        AppLog.d(TAG, "执行动作类型: $action (lowercase: ${action.lowercase()})")
         val result = try {
             when (action.lowercase()) {
                 "launch" -> launchApp(actionObj)
@@ -401,11 +401,11 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.e(TAG, "执行动作异常: $action", e)
+            AppLog.e(TAG, "执行动作异常: $action", e)
             ActionResult(success = false, message = "执行动作失败: $action - ${e.message}")
         }
 
-        Log.d(TAG, "动作执行完成: $action -> success=${result.success}, message=${result.message}")
+        AppLog.d(TAG, "动作执行完成: $action -> success=${result.success}, message=${result.message}")
         return result
     }
 
@@ -464,10 +464,10 @@ class ActionExecutor(private val service: MyAccessibilityService) {
      */
     private suspend fun tap(actionObj: JsonObject, screenWidth: Int, screenHeight: Int): ActionResult {
         val element = actionObj.get("element")
-        Log.d(TAG, "点击事件位置: $element, 屏幕尺寸: ${screenWidth}x${screenHeight}")
+        AppLog.d(TAG, "点击事件位置: $element, 屏幕尺寸: ${screenWidth}x${screenHeight}")
 
         if (element == null || !element.isJsonArray) {
-            Log.e(TAG, "参数错误：element不是数组，类型为${element?.javaClass?.simpleName}")
+            AppLog.e(TAG, "参数错误：element不是数组，类型为${element?.javaClass?.simpleName}")
             return ActionResult(
                 success = false,
                 message = "参数错误：element字段类型非法，需为JSON数组格式 [x, y]" +
@@ -477,7 +477,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
 
         val arr = element.asJsonArray
         if (arr.size() != 2) {
-            Log.e(TAG, "参数错误：数组长度为${arr.size()}")
+            AppLog.e(TAG, "参数错误：数组长度为${arr.size()}")
             return ActionResult(
                 success = false,
                 message = "参数错误：element字段需为「千分比相对坐标数组」，标准格式为 [x, y]，" +
@@ -495,7 +495,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         }
 
         val (x, y) = relativeToAbsolute(listOf(relX, relY), screenWidth, screenHeight)
-        Log.d(TAG, "相对坐标[$relX, $relY] -> 绝对坐标($x, $y)")
+        AppLog.d(TAG, "相对坐标[$relX, $relY] -> 绝对坐标($x, $y)")
 
         if (x < 0 || x > screenWidth || y < 0 || y > screenHeight) {
             return ActionResult(
@@ -521,7 +521,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
             // 吞掉、且节点树几乎为空，反复 tap 没有意义。把这条提示喂给模型，
             // 引导其改用 swipe 或 finish 交还用户。
             val containerHint = service.foregroundContainerHint()
-            Log.w(TAG, "tap 失败已上报模型：坐标($x, $y) containerHint=$containerHint")
+            AppLog.w(TAG, "tap 失败已上报模型：坐标($x, $y) containerHint=$containerHint")
             val message = buildString {
                 append("点击手势提交失败：坐标($x, $y)")
                 if (containerHint == "WebView") {
@@ -594,7 +594,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         val start = actionObj.get("start")
         val end = actionObj.get("end")
 
-        Log.d(TAG, "滑动事件 - element: $element, start: $start, end: $end")
+        AppLog.d(TAG, "滑动事件 - element: $element, start: $start, end: $end")
 
         // 解析坐标变量
         var startX: Float = 0f
@@ -709,7 +709,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.e(TAG, "滑动执行异常", e)
+            AppLog.e(TAG, "滑动执行异常", e)
             ActionResult(
                 success = false,
                 message = "滑动执行异常：${e.message}"
@@ -724,14 +724,14 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         return try {
             val success = service.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
             if (success) {
-                Log.d(TAG, "执行返回成功")
+                AppLog.d(TAG, "执行返回成功")
                 ActionResult(
                     success = true,
                     message = "返回上一页成功",
                     actionDetail = ActionDetail(type = "back", waitMs = NAVIGATION_SETTLE_DELAY_MS)
                 )
             } else {
-                Log.e(TAG, "执行返回失败：无障碍服务无法执行返回操作")
+                AppLog.e(TAG, "执行返回失败：无障碍服务无法执行返回操作")
                 ActionResult(
                     success = false,
                     message = "执行返回失败：设备可能不支持此操作"
@@ -740,7 +740,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.e(TAG, "执行返回异常", e)
+            AppLog.e(TAG, "执行返回异常", e)
             ActionResult(
                 success = false,
                 message = "执行返回异常：${e.message}"
@@ -755,14 +755,14 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         return try {
             val success = service.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME)
             if (success) {
-                Log.d(TAG, "执行返回桌面成功")
+                AppLog.d(TAG, "执行返回桌面成功")
                 ActionResult(
                     success = true,
                     message = "返回桌面成功",
                     actionDetail = ActionDetail(type = "home", waitMs = NAVIGATION_SETTLE_DELAY_MS)
                 )
             } else {
-                Log.e(TAG, "执行返回桌面失败：无障碍服务无法执行此操作")
+                AppLog.e(TAG, "执行返回桌面失败：无障碍服务无法执行此操作")
                 ActionResult(
                     success = false,
                     message = "执行返回桌面失败：设备可能不支持此操作"
@@ -771,7 +771,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.e(TAG, "执行返回桌面异常", e)
+            AppLog.e(TAG, "执行返回桌面异常", e)
             ActionResult(
                 success = false,
                 message = "执行返回桌面异常：${e.message}"
@@ -787,7 +787,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
      */
     private suspend fun longPress(actionObj: JsonObject, screenWidth: Int, screenHeight: Int): ActionResult {
         val element = actionObj.get("element")
-        Log.d(TAG, "长按事件位置: $element")
+        AppLog.d(TAG, "长按事件位置: $element")
 
         if (element == null || !element.isJsonArray) {
             return ActionResult(
@@ -842,7 +842,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.e(TAG, "长按执行异常", e)
+            AppLog.e(TAG, "长按执行异常", e)
             ActionResult(
                 success = false,
                 message = "长按执行异常：${e.message}"
@@ -858,7 +858,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
      */
     private suspend fun doubleTap(actionObj: JsonObject, screenWidth: Int, screenHeight: Int): ActionResult {
         val element = actionObj.get("element")
-        Log.d(TAG, "双击事件位置: $element")
+        AppLog.d(TAG, "双击事件位置: $element")
 
         if (element == null || !element.isJsonArray) {
             return ActionResult(
@@ -913,7 +913,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.e(TAG, "双击执行异常", e)
+            AppLog.e(TAG, "双击执行异常", e)
             ActionResult(
                 success = false,
                 message = "双击执行异常：${e.message}"
@@ -962,7 +962,7 @@ class ActionExecutor(private val service: MyAccessibilityService) {
         val maxDelay = 30000L // 30秒
         val actualDelay = minOf(delay, maxDelay)
 
-        Log.d(TAG, "等待 ${actualDelay}ms")
+        AppLog.d(TAG, "等待 ${actualDelay}ms")
         delay(actualDelay)
 
         val message = if (delay > maxDelay) {

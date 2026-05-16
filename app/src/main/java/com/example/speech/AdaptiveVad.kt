@@ -1,6 +1,6 @@
 package com.example.speech
 
-import android.util.Log
+import com.example.diagnostics.AppLog
 import kotlin.math.sqrt
 
 /**
@@ -62,7 +62,7 @@ class AdaptiveVad(
             if (silenceFrameCount >= confirmSilenceFrames) {
                 noiseFloor = (1 - alpha) * noiseFloor + alpha * ste
                 silenceFrameCount = 0
-                Log.v(TAG, "噪声基底更新: ${noiseFloor.toInt()} STE")
+                AppLog.v(TAG, "噪声基底更新: ${noiseFloor.toInt()} STE")
                 return true
             }
         } else {

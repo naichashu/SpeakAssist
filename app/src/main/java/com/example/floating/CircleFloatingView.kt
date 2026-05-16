@@ -7,7 +7,7 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
+import com.example.diagnostics.AppLog
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -129,7 +129,7 @@ class CircleFloatingView(
         windowManager.addView(rootView, layoutParams)
         showIdle()
         isOnRightEdge = true
-        Log.d(TAG, "圆形悬浮窗已创建")
+        AppLog.d(TAG, "圆形悬浮窗已创建")
     }
 
     fun destroy() {
@@ -140,7 +140,7 @@ class CircleFloatingView(
             try {
                 windowManager.removeView(it)
             } catch (e: Exception) {
-                Log.w(TAG, "移除悬浮窗失败", e)
+                AppLog.w(TAG, "移除悬浮窗失败", e)
             }
         }
         rootView = null
@@ -389,7 +389,7 @@ class CircleFloatingView(
             try {
                 windowManager.updateViewLayout(view, layoutParams)
             } catch (e: Exception) {
-                Log.w(TAG, "更新布局失败", e)
+                AppLog.w(TAG, "更新布局失败", e)
             }
         }
     }

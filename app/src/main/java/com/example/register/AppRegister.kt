@@ -3,7 +3,7 @@ package com.example.register
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
-import android.util.Log
+import com.example.diagnostics.AppLog
 
 object AppRegister {
     private const val TAG = "AppRegister"
@@ -383,13 +383,13 @@ object AppRegister {
         val aliasKey = ALIAS_MAP[name.lowercase()]
         if (aliasKey != null) {
             appToPackageMap[aliasKey]?.let {
-                Log.d(TAG, "别名命中: $name -> $aliasKey -> $it")
+                AppLog.d(TAG, "别名命中: $name -> $aliasKey -> $it")
                 return it
             }
             appToPackageMap.entries.firstOrNull { (label, _) ->
                 label.contains(aliasKey, ignoreCase = true)
             }?.let {
-                Log.d(TAG, "别名模糊命中: $name -> $aliasKey -> ${it.key} -> ${it.value}")
+                AppLog.d(TAG, "别名模糊命中: $name -> $aliasKey -> ${it.key} -> ${it.value}")
                 return it.value
             }
         }
@@ -398,11 +398,11 @@ object AppRegister {
         appToPackageMap.entries.firstOrNull { (label, _) ->
             label.contains(name, ignoreCase = true)
         }?.let {
-            Log.d(TAG, "模糊命中: $name -> ${it.key} -> ${it.value}")
+            AppLog.d(TAG, "模糊命中: $name -> ${it.key} -> ${it.value}")
             return it.value
         }
 
-        Log.w(TAG, "未找到 app: $name")
+        AppLog.w(TAG, "未找到 app: $name")
         return ""
     }
 
@@ -425,7 +425,7 @@ object AppRegister {
             PackageManager.GET_META_DATA // 仅获取基础元数据，提升效率
         )
 
-        Log.d(TAG, "已安装 App 数量：${installedApplications.size}")
+        AppLog.d(TAG, "已安装 App 数量：${installedApplications.size}")
 
         // 2. 遍历，提取「应用名称」和「包名」，存入可变映射
         for (appInfo: ApplicationInfo in installedApplications) {

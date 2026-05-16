@@ -1,7 +1,7 @@
 package com.example.service
 
 import android.os.Build
-import android.util.Log
+import com.example.diagnostics.AppLog
 
 /**
  * 设备手势时序 profile。按 Build.BRAND / MANUFACTURER 选择合适的时长。
@@ -104,7 +104,7 @@ data class GestureTimingProfile(
                 BALANCED_KEYWORDS.any { it in brand || it in manufacturer } -> BALANCED
                 else -> DEFAULT
             }
-            Log.i(
+            AppLog.i(
                 TAG,
                 "selected profile=${profile.name} tap=${profile.tapDurationMs}ms " +
                         "brand=$brand manufacturer=$manufacturer",

@@ -8,7 +8,7 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
+import com.example.diagnostics.AppLog
 import androidx.core.app.ActivityCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -108,9 +108,9 @@ class WakeWordListeningManager(private val context: Context) {
 
         if (success) {
             isInitialized = true
-            Log.i(TAG, "WakeWordListeningManager 初始化成功")
+            AppLog.i(TAG, "WakeWordListeningManager 初始化成功")
         } else {
-            Log.e(TAG, "WakeWordListeningManager 初始化失败")
+            AppLog.e(TAG, "WakeWordListeningManager 初始化失败")
         }
 
         return success
@@ -120,35 +120,35 @@ class WakeWordListeningManager(private val context: Context) {
 
     fun startListening() {
         if (!isReady()) {
-            Log.e(TAG, "未初始化或模型加载失败，无法开始监听")
+            AppLog.e(TAG, "未初始化或模型加载失败，无法开始监听")
             listener?.onError("语音引擎未就绪")
             return
         }
 
         if (_state.value != State.IDLE) {
-            Log.w(TAG, "当前状态不是 IDLE，无法开始监听: ${_state.value}")
+            AppLog.w(TAG, "当前状态不是 IDLE，无法开始监听: ${_state.value}")
             return
         }
 
         if (listeningJob?.isActive == true) {
-            Log.w(TAG, "已经在监听中")
+            AppLog.w(TAG, "已经在监听中")
             return
         }
 
         if (!checkPermission()) {
-            Log.e(TAG, "缺少录音权限，无法开始监听")
+            AppLog.e(TAG, "缺少录音权限，无法开始监听")
             listener?.onError("缺少录音权限")
             return
         }
 
-        Log.i(TAG, "开始监听唤醒词")
+        AppLog.i(TAG, "开始监听唤醒词")
         listeningJob = scope.launch(Dispatchers.IO) {
             startWakeWordLoop()
         }
     }
 
     fun stopListening() {
-        Log.i(TAG, "停止监听...")
+        AppLog.i(TAG, "停止监听...")
         listeningJob?.cancel()
         listeningJob = null
         stopRecording()
@@ -162,7 +162,7 @@ class WakeWordListeningManager(private val context: Context) {
         voskManager = null
         scope.cancel()
         isInitialized = false
-        Log.d(TAG, "WakeWordListeningManager 已销毁")
+        AppLog.d(TAG, "WakeWordListeningManager 已销毁")
     }
 
     private fun checkPermission(): Boolean {
@@ -179,7 +179,7 @@ class WakeWordListeningManager(private val context: Context) {
     private fun updateState(newState: State) {
         if (_state.value != newState) {
             _state.value = newState
-            Log.d(TAG, "状态变化: $newState")
+            AppLog.d(TAG, "状态变化: $newState")
             handler.post {
                 listener?.onStateChanged(newState)
             }
@@ -198,7 +198,7 @@ class WakeWordListeningManager(private val context: Context) {
             return
         }
 
-        Log.d(TAG, "录音缓冲区大小: $bufferSize")
+        AppLog.d(TAG, "录音缓冲区大小: $bufferSize")
         audioRecord = try {
             AudioRecord(
                 MediaRecorder.AudioSource.MIC,
@@ -213,16 +213,16 @@ class WakeWordListeningManager(private val context: Context) {
         }
 
         if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
-            Log.e(TAG, "AudioRecord 初始化失败: ${audioRecord?.state}")
+            AppLog.e(TAG, "AudioRecord 初始化失败: ${audioRecord?.state}")
             handler.post { listener?.onError("录音初始化失败") }
             return
         }
 
         try {
             audioRecord?.startRecording()
-            Log.d(TAG, "录音已启动")
+            AppLog.d(TAG, "录音已启动")
         } catch (e: Exception) {
-            Log.e(TAG, "启动录音失败", e)
+            AppLog.e(TAG, "启动录音失败", e)
             handler.post { listener?.onError("启动录音失败") }
             return
         }
@@ -230,7 +230,7 @@ class WakeWordListeningManager(private val context: Context) {
         val buffer = ByteArray(bufferSize)
         var listeningStartTime = System.currentTimeMillis()
 
-        Log.d(TAG, "进入唤醒词检测循环")
+        AppLog.d(TAG, "进入唤醒词检测循环")
         updateState(State.IDLE)
 
         // 预学习阶段：测量环境噪声基底，用于初始化 AdaptiveVad 和动态调整匹配置信度
@@ -252,7 +252,7 @@ class WakeWordListeningManager(private val context: Context) {
             throw e
         }
         val noiseFloorRms = environmentAnalyzer.getInitialNoiseFloorRms()
-        Log.d(TAG, "唤醒预学习完成，基底 RMS=${"%.1f".format(noiseFloorRms)}")
+        AppLog.d(TAG, "唤醒预学习完成，基底 RMS=${"%.1f".format(noiseFloorRms)}")
 
         try {
             loop@ while (audioRecord?.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
@@ -274,9 +274,9 @@ class WakeWordListeningManager(private val context: Context) {
                 val partialResult = voskManager?.getPartialResult().orEmpty()
 
                 if (partialResult.isNotBlank()) {
-                    Log.d(TAG, "唤醒检测 partial: $partialResult")
+                    AppLog.d(TAG, "唤醒检测 partial: $partialResult")
                     if (containsWakeWord(partialResult, noiseFloorRms)) {
-                        Log.i(TAG, "唤醒词检测到: $partialResult")
+                        AppLog.i(TAG, "唤醒词检测到: $partialResult")
                         recognizer.reset()
                         handler.post { listener?.onWakeWordDetected() }
                         updateState(State.WAKE_DETECTED)
@@ -285,7 +285,7 @@ class WakeWordListeningManager(private val context: Context) {
                 }
 
                 if (hasSpeechDetected && System.currentTimeMillis() - listeningStartTime > MAX_LISTENING_MS) {
-                    Log.d(TAG, "唤醒词检测超时，重置识别器")
+                    AppLog.d(TAG, "唤醒词检测超时，重置识别器")
                     recognizer.reset()
                     hasSpeechDetected = false
                     listeningStartTime = System.currentTimeMillis()
@@ -296,7 +296,7 @@ class WakeWordListeningManager(private val context: Context) {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.e(TAG, "唤醒词检测循环异常", e)
+            AppLog.e(TAG, "唤醒词检测循环异常", e)
             handler.post { listener?.onError("唤醒词监听异常: ${e.message ?: "未知错误"}") }
         }
 
@@ -313,10 +313,10 @@ class WakeWordListeningManager(private val context: Context) {
             }
             audioRecord?.release()
         } catch (e: Exception) {
-            Log.w(TAG, "停止录音失败", e)
+            AppLog.w(TAG, "停止录音失败", e)
         }
         audioRecord = null
-        Log.d(TAG, "录音已停止")
+        AppLog.d(TAG, "录音已停止")
     }
 
 

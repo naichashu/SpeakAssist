@@ -1,7 +1,7 @@
 package com.example.speech
 
 import android.content.Context
-import android.util.Log
+import com.example.diagnostics.AppLog
 import org.json.JSONObject
 import org.vosk.Model
 import org.vosk.Recognizer
@@ -62,11 +62,11 @@ class VoskRecognizerManager(private val context: Context) {
 
         // 检查模型是否存在
         if (!modelDir.exists()) {
-            Log.w(TAG, "模型不存在: $modelPath，尝试从 assets 复制")
+            AppLog.w(TAG, "模型不存在: $modelPath，尝试从 assets 复制")
             try {
                 copyModelFromAssets()
             } catch (e: Exception) {
-                Log.e(TAG, "从 assets 复制模型失败", e)
+                AppLog.e(TAG, "从 assets 复制模型失败", e)
                 return false
             }
         }
@@ -74,13 +74,13 @@ class VoskRecognizerManager(private val context: Context) {
         // 加载模型
         return try {
             model = Model(modelPath)
-            Log.i(TAG, "Vosk 模型加载成功: $modelPath")
+            AppLog.i(TAG, "Vosk 模型加载成功: $modelPath")
             true
         } catch (e: IOException) {
-            Log.e(TAG, "模型加载失败: $modelPath", e)
+            AppLog.e(TAG, "模型加载失败: $modelPath", e)
             false
         } catch (e: Exception) {
-            Log.e(TAG, "模型加载异常", e)
+            AppLog.e(TAG, "模型加载异常", e)
             false
         }
     }
@@ -93,12 +93,12 @@ class VoskRecognizerManager(private val context: Context) {
         val assetManager = context.assets
         val destDir = File(getModelPath(context))
 
-        Log.d(TAG, "开始复制模型从 assets 到: ${destDir.absolutePath}")
+        AppLog.d(TAG, "开始复制模型从 assets 到: ${destDir.absolutePath}")
 
         // 复制整个模型目录
         copyDirectory(assetManager, MODEL_NAME, destDir)
 
-        Log.i(TAG, "模型复制完成")
+        AppLog.i(TAG, "模型复制完成")
     }
 
     /**
@@ -136,14 +136,14 @@ class VoskRecognizerManager(private val context: Context) {
                                 input.copyTo(output)
                             }
                         }
-                        Log.v(TAG, "复制文件: $src -> ${destFile.absolutePath}")
+                        AppLog.v(TAG, "复制文件: $src -> ${destFile.absolutePath}")
                     } catch (e: Exception) {
-                        Log.w(TAG, "复制文件失败: $src", e)
+                        AppLog.w(TAG, "复制文件失败: $src", e)
                     }
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "复制目录失败: $srcPath", e)
+            AppLog.e(TAG, "复制目录失败: $srcPath", e)
         }
     }
 
@@ -154,7 +154,7 @@ class VoskRecognizerManager(private val context: Context) {
      */
     fun createRecognizer(grammar: String? = null): Recognizer? {
         val m = model ?: run {
-            Log.e(TAG, "模型未加载，无法创建 Recognizer")
+            AppLog.e(TAG, "模型未加载，无法创建 Recognizer")
             return null
         }
 
@@ -167,10 +167,10 @@ class VoskRecognizerManager(private val context: Context) {
                 Recognizer(m, SAMPLE_RATE)
             }
             recognizer = rec
-            Log.d(TAG, "Recognizer 创建成功 grammar=${grammar != null}")
+            AppLog.d(TAG, "Recognizer 创建成功 grammar=${grammar != null}")
             rec
         } catch (e: Exception) {
-            Log.e(TAG, "创建 Recognizer 失败 grammar=${grammar != null}", e)
+            AppLog.e(TAG, "创建 Recognizer 失败 grammar=${grammar != null}", e)
             null
         }
     }
@@ -192,7 +192,7 @@ class VoskRecognizerManager(private val context: Context) {
                 null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "识别失败", e)
+            AppLog.e(TAG, "识别失败", e)
             null
         }
     }
@@ -206,7 +206,7 @@ class VoskRecognizerManager(private val context: Context) {
             val partial = recognizer?.partialResult ?: return null
             extractResultText(partial, "partial")
         } catch (e: Exception) {
-            Log.e(TAG, "获取部分结果失败", e)
+            AppLog.e(TAG, "获取部分结果失败", e)
             null
         }
     }
@@ -220,7 +220,7 @@ class VoskRecognizerManager(private val context: Context) {
             val result = recognizer?.result ?: return ""
             extractResultText(result, "text") ?: ""
         } catch (e: Exception) {
-            Log.e(TAG, "获取最终结果失败", e)
+            AppLog.e(TAG, "获取最终结果失败", e)
             ""
         }
     }
@@ -247,7 +247,7 @@ class VoskRecognizerManager(private val context: Context) {
                 parseJsonField(rawResult.toString(), key)
             }
         } catch (e: Exception) {
-            Log.w(TAG, "解析 $key 结果失败，改用字符串解析: ${e.message}")
+            AppLog.w(TAG, "解析 $key 结果失败，改用字符串解析: ${e.message}")
             parseJsonField(rawResult.toString(), key)
         }
     }
@@ -260,7 +260,7 @@ class VoskRecognizerManager(private val context: Context) {
             val value = JSONObject(normalized).optString(key).trim()
             if (value.isEmpty()) null else value
         } catch (e: Exception) {
-            Log.w(TAG, "解析 JSON 字段失败(key=$key): ${e.message}")
+            AppLog.w(TAG, "解析 JSON 字段失败(key=$key): ${e.message}")
             if (normalized.startsWith("{") && normalized.endsWith("}")) {
                 null
             } else {
@@ -276,9 +276,9 @@ class VoskRecognizerManager(private val context: Context) {
     fun reset() {
         try {
             recognizer?.reset()
-            Log.d(TAG, "Recognizer 已重置")
+            AppLog.d(TAG, "Recognizer 已重置")
         } catch (e: Exception) {
-            Log.e(TAG, "重置 Recognizer 失败", e)
+            AppLog.e(TAG, "重置 Recognizer 失败", e)
         }
     }
 
@@ -290,17 +290,17 @@ class VoskRecognizerManager(private val context: Context) {
         try {
             recognizer?.close()
         } catch (e: Exception) {
-            Log.w(TAG, "关闭 Recognizer 失败", e)
+            AppLog.w(TAG, "关闭 Recognizer 失败", e)
         }
         recognizer = null
 
         try {
             model?.close()
         } catch (e: Exception) {
-            Log.w(TAG, "关闭 Model 失败", e)
+            AppLog.w(TAG, "关闭 Model 失败", e)
         }
         model = null
 
-        Log.d(TAG, "VoskRecognizerManager 已销毁")
+        AppLog.d(TAG, "VoskRecognizerManager 已销毁")
     }
 }

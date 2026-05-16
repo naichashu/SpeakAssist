@@ -9,7 +9,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.util.Log
+import com.example.diagnostics.AppLog
 import android.view.MotionEvent
 import android.view.View
 import android.view.accessibility.AccessibilityManager
@@ -263,7 +263,7 @@ class MainActivity : AppCompatActivity() {
                 permissionBanner.visibility = View.GONE
             }
 
-            Log.d(
+            AppLog.d(
                 "MainActivity",
                 "权限状态: 无障碍=$accessibilityEnabled, 输入法=$inputMethodEnabled, 输入方式=$textInputMode, 录音=$audioPermission, 悬浮窗=$overlayPermission"
             )
@@ -642,7 +642,7 @@ class MainActivity : AppCompatActivity() {
     private fun executeTask(command: String) {
         lifecycleScope.launch {
             try {
-                Log.d("MainActivity", "开始执行任务：$command")
+                AppLog.d("MainActivity", "开始执行任务：$command")
                 chatViewModel = ChatViewModel(application)
                 val result = chatViewModel.executeTaskLoop(command)
                 if (!result.success && result.message.contains("无障碍服务")) {
@@ -651,7 +651,7 @@ class MainActivity : AppCompatActivity() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e("MainActivity", "执行任务失败", e)
+                AppLog.e("MainActivity", "执行任务失败", e)
                 addSystemMessage("执行失败：${e.message}")
 
                 if (e.message?.contains("无障碍服务") == true) {
@@ -744,7 +744,7 @@ class MainActivity : AppCompatActivity() {
                 serviceInfo.resolveInfo?.serviceInfo?.packageName == myPackageName
             }
         } catch (e: Exception) {
-            Log.e("MainActivity", "检查无障碍服务失败", e)
+            AppLog.e("MainActivity", "检查无障碍服务失败", e)
             return false
         }
     }

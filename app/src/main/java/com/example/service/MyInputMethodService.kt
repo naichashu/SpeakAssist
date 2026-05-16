@@ -4,7 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.inputmethodservice.InputMethodService
 import android.provider.Settings
-import android.util.Log
+import com.example.diagnostics.AppLog
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.view.Gravity
@@ -78,13 +78,13 @@ class MyInputMethodService : InputMethodService() {
     override fun onCreate() {
         super.onCreate()
         instance = this
-        Log.d(TAG, "输入法已创建")
+        AppLog.d(TAG, "输入法已创建")
     }
 
     override fun onDestroy() {
         super.onDestroy()
         instance = null
-        Log.d(TAG, "输入法已销毁")
+        AppLog.d(TAG, "输入法已销毁")
     }
 
     /**
@@ -92,7 +92,7 @@ class MyInputMethodService : InputMethodService() {
      */
     override fun onStartInputView(editorInfo: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(editorInfo, restarting)
-        Log.d(TAG, "启动输入法")
+        AppLog.d(TAG, "启动输入法")
     }
 
     // 1. 实现输入法界面（哪怕简单显示，也符合系统规范）
@@ -140,17 +140,17 @@ class MyInputMethodService : InputMethodService() {
         // 获取当前输入连接（必须有焦点的输入框才会有）
         val inputConn = currentInputConnection
         if (inputConn == null) {
-            Log.d(TAG, "输入失败：无可用的输入连接（未激活输入框）")
+            AppLog.d(TAG, "输入失败：无可用的输入连接（未激活输入框）")
             return false
         }
 
         try {
             // 输入文本
             val isReallySuccess = inputConn.commitText(text, text.length)
-            Log.d(TAG, "文本输入成功：$text")
+            AppLog.d(TAG, "文本输入成功：$text")
             return isReallySuccess
         } catch (e: Exception) {
-            Log.d(TAG, "输入文本失败：${e.message}", e)
+            AppLog.d(TAG, "输入文本失败：${e.message}", e)
             return false
         }
     }

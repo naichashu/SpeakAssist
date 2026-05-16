@@ -1,7 +1,7 @@
 package com.example.speakassist
 
 import android.Manifest
-import android.util.Log
+import com.example.diagnostics.AppLog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -169,14 +169,13 @@ class SettingsActivity : AppCompatActivity() {
                     showToast(getString(R.string.diagnostics_disabled_hint), Toast.LENGTH_LONG)
                     return@launch
                 }
-                LogcatTee.flush()
-                val logFile = LogcatTee.getCurrentLogFile()
-                if (logFile == null || !logFile.exists()) {
+                val files = LogcatTee.prepareUploadSnapshot()
+                if (files.isEmpty()) {
                     showToast("当前无日志文件", Toast.LENGTH_SHORT)
                     return@launch
                 }
-                DiagnosticsUploader.enqueue(this@SettingsActivity, logFile, "manual")
-                showToast("已加入上传队列", Toast.LENGTH_SHORT)
+                files.forEach { DiagnosticsUploader.enqueue(this@SettingsActivity, it, "manual") }
+                showToast("已加入上传队列(${files.size} 个文件)", Toast.LENGTH_SHORT)
             }
         }
     }

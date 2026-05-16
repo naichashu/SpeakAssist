@@ -3,7 +3,7 @@ package com.example.network
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Base64
-import android.util.Log
+import com.example.diagnostics.AppLog
 import com.example.network.dto.ChatMessage
 import com.example.network.dto.ChatRequest
 import com.example.network.dto.ContentItem
@@ -55,7 +55,9 @@ class ModelClient(
     }
 
     init {
-        val loggingInterceptor = HttpLoggingInterceptor().apply {
+        val loggingInterceptor = HttpLoggingInterceptor { message ->
+            AppLog.d("OkHttp", message)
+        }.apply {
             level = if (com.example.speakassist.BuildConfig.DEBUG)
                 HttpLoggingInterceptor.Level.BASIC
             else
@@ -83,7 +85,7 @@ class ModelClient(
 
         requestBaseUrl = checkAndFixUrl(baseUrl).removeChatCompletionsSuffix().ensureTrailingSlash()
         provider = detectProvider(requestBaseUrl)
-        Log.d(TAG, "ModelClient 初始化，baseUrl=$requestBaseUrl, provider=$provider")
+        AppLog.d(TAG, "ModelClient 初始化，baseUrl=$requestBaseUrl, provider=$provider")
     }
 
     /**
@@ -128,7 +130,7 @@ class ModelClient(
             val jsonBody = Gson().toJson(httpRequest)
             val requestBody: RequestBody = jsonBody.toRequestBody("application/json".toMediaType())
             val requestUrl = "${requestBaseUrl}chat/completions"
-            Log.d(
+            AppLog.d(
                 TAG,
                 "发送模型请求: provider=$provider, url=$requestUrl, model=$modelName, messages=${requestMessages.size}"
             )
@@ -141,7 +143,7 @@ class ModelClient(
             currentCall = okHttpClient.newCall(httpRequestBuilder.build())
             currentCall?.enqueue(object : okhttp3.Callback {
                 override fun onFailure(call: Call, e: java.io.IOException) {
-                    Log.e(TAG, "请求失败: ${e.message}")
+                    AppLog.e(TAG, "请求失败: ${e.message}")
                     if (continuation.isActive) {
                         continuation.resumeWithException(e)
                     }
@@ -151,11 +153,11 @@ class ModelClient(
                     try {
                         if (!response.isSuccessful) {
                             val errorBody = response.peekBody(1200).string()
-                            Log.e(
+                            AppLog.e(
                                 TAG,
                                 "请求失败详情: code=${response.code}, message=${response.message}, provider=$provider, body=$errorBody"
                             )
-                            Log.e(TAG, "请求失败: ${response.code} ${response.message}")
+                            AppLog.e(TAG, "请求失败: ${response.code} ${response.message}")
                             if (continuation.isActive) {
                                 continuation.resumeWithException(
                                     java.io.IOException("请求失败: ${response.code} ${response.message}")
@@ -164,7 +166,7 @@ class ModelClient(
                             return
                         }
                         val bodyStr = response.body?.string() ?: ""
-                        Log.d(TAG, "响应内容: $bodyStr")
+                        AppLog.d(TAG, "响应内容: $bodyStr")
 
                         val json = parseString(bodyStr).asJsonObject
                         val content = json
@@ -179,7 +181,7 @@ class ModelClient(
                             continuation.resume(parseResponse(content))
                         }
                     } catch (e: Exception) {
-                        Log.e(TAG, "解析响应异常: ${e.message}")
+                        AppLog.e(TAG, "解析响应异常: ${e.message}")
                         if (continuation.isActive) {
                             continuation.resumeWithException(e)
                         }
@@ -192,10 +194,10 @@ class ModelClient(
             // 协程被取消时中断 HTTP 请求
             continuation.invokeOnCancellation {
                 currentCall?.cancel()
-                Log.d(TAG, "HTTP 请求已被取消")
+                AppLog.d(TAG, "HTTP 请求已被取消")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "构建请求异常: ${e.message}")
+            AppLog.e(TAG, "构建请求异常: ${e.message}")
             if (continuation.isActive) {
                 continuation.resumeWithException(e)
             }
@@ -207,7 +209,7 @@ class ModelClient(
      */
     fun cancelCurrentRequest() {
         currentCall?.cancel()
-        Log.d(TAG, "用户取消请求")
+        AppLog.d(TAG, "用户取消请求")
     }
 
     /**
@@ -265,7 +267,7 @@ class ModelClient(
     }
 
     private fun parseResponse(content: String): ModelResponse {
-        Log.d(TAG, "解析前响应内容: ${content.take(500)}")
+        AppLog.d(TAG, "解析前响应内容: ${content.take(500)}")
 
         var thinking = ""
         var action = ""
@@ -304,7 +306,7 @@ class ModelClient(
 
         thinking = sanitizeThinking(thinking)
 
-        Log.d(TAG, "解析后响应内容:thinking=${thinking.take(80)}, action=${action.take(80)}")
+        AppLog.d(TAG, "解析后响应内容:thinking=${thinking.take(80)}, action=${action.take(80)}")
 
         return ModelResponse(thinking = thinking, action = action)
     }
@@ -341,7 +343,7 @@ class ModelClient(
             }
         }
         if (paren != 0 || bracket != 0 || brace != 0) {
-            Log.w(TAG, "thinking 含不平衡括号，丢弃以防上下文污染: ${stripped.take(120)}")
+            AppLog.w(TAG, "thinking 含不平衡括号，丢弃以防上下文污染: ${stripped.take(120)}")
             return ""
         }
         return stripped
@@ -355,7 +357,7 @@ class ModelClient(
         var braceCount = 0
         val candidates = mutableListOf<String>()
 
-        Log.d(TAG, "从内容中提取的JSON对象")
+        AppLog.d(TAG, "从内容中提取的JSON对象")
 
         // 遍历字符串，寻找JSON对象
         for (i in content.indices) {
