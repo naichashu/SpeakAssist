@@ -94,3 +94,9 @@ jacoco.exec
 
 # Backup files
 *.bak
+
+# 内部维护文档与服务器配置（不公开）
+CLAUDE.md
+docs/服务器文档/
+_tmp/
+docs/apikey.txt
