@@ -134,19 +134,22 @@ H5 / 小程序里 tap 失败时，跑一次有界 DFS（深度 ≤4、节点 ≤
 
 ## 快速开始
 
-### 1. 下载安装
+### 1. 构建 APK
 
-从 [Releases](https://github.com/yourusername/SpeakAssist/releases) 下载最新 APK，安装到 Android 11+ 设备。
-
-或自己构建：
+目前没有发布预编译包，请自己用 Gradle 构建（release 用 debug key 签名，构建产物可以直接装手机分发，不需要管 keystore）：
 
 ```bash
-git clone https://github.com/yourusername/SpeakAssist.git
+git clone https://github.com/naichashu/SpeakAssist.git
 cd SpeakAssist
 
 ./gradlew assembleRelease
 # 产物：app/build/outputs/apk/release/app-release.apk
-# (release 用 debug key 签名，可直接装手机分发，不需要管 keystore)
+```
+
+也可以连着手机直接装：
+
+```bash
+./gradlew installDebug
 ```
 
 ### 2. 配置 API
